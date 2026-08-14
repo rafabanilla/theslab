@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>The Slab</title>
+<meta name="theme-color" content="#15171B">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="The Slab">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#15171B; --paper:#E7EAEE; --label:#FFFFFF; --rule:#C6CCD5;
+  --mute:#6E7681; --red:#C8102E; --gold:#9C7412; --green:#166B45;
+  --shadow:0 1px 0 rgba(21,23,27,.06),0 2px 10px rgba(21,23,27,.07);
+  --disp:'Oswald','Arial Narrow',system-ui,sans-serif;
+  --body:'Inter',system-ui,-apple-system,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;
+  padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+
+/* header */
+.hdr{background:var(--ink);color:#fff;padding:calc(14px + env(safe-area-inset-top)) 16px 0;position:sticky;top:0;z-index:20}
+.hdr-top{display:flex;align-items:baseline;justify-content:space-between}
+.wordmark{font-family:var(--disp);letter-spacing:.14em;font-size:19px}
+.wm-1{font-weight:400;opacity:.55;margin-right:6px}
+.wm-2{font-weight:600}
+.save{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;opacity:.6}
+.ticker{display:flex;margin-top:12px;border-top:1px solid rgba(255,255,255,.16)}
+.tick{flex:1;padding:9px 4px 11px;border-right:1px solid rgba(255,255,255,.12)}
+.tick:last-child{border-right:none}
+.tick-v{font-family:var(--mono);font-weight:600;font-size:15px;letter-spacing:-.02em}
+.tick-l{font-size:9px;letter-spacing:.13em;text-transform:uppercase;opacity:.5;margin-top:2px}
+.tick.hot .tick-v{color:#FF6B7F}
+.tabs{display:flex;background:var(--ink);padding:0 16px;position:sticky;z-index:19}
+.tab{flex:1;padding:11px 0 12px;font-family:var(--disp);font-size:12px;letter-spacing:.11em;
+  text-transform:uppercase;color:rgba(255,255,255,.5);border-bottom:2px solid transparent}
+.tab.on{color:#fff;border-bottom-color:var(--red)}
+
+.pane{padding:16px 14px 40px;max-width:820px;margin:0 auto}
+.search{width:100%;padding:12px 14px;border:1px solid var(--rule);border-radius:2px;background:var(--label);
+  font-size:16px;font-family:inherit;color:var(--ink)}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:10px 0 2px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{white-space:nowrap;padding:6px 11px;border:1px solid var(--rule);background:var(--label);
+  font-size:12px;border-radius:2px;color:var(--mute)}
+.chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.chip.alt{font-family:var(--mono);font-size:11px}
+.count{font-family:var(--mono);font-size:11px;color:var(--mute);margin:12px 0 8px;letter-spacing:.04em}
+
+/* signature: the slab row */
+.slab{display:flex;background:var(--label);border:1px solid var(--rule);border-radius:2px;
+  margin-bottom:8px;overflow:hidden;box-shadow:var(--shadow);cursor:pointer}
+.slab:active{transform:translateY(1px)}
+.cg{width:52px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:1px;padding:8px 2px;background:var(--ink);color:#fff}
+.cg.g10{background:var(--gold)}
+.cg.g8{background:#4A515C}
+.cg.raw{background:repeating-linear-gradient(135deg,#EDEFF2,#EDEFF2 5px,#E3E6EB 5px,#E3E6EB 10px);color:var(--mute)}
+.cg-co{font-family:var(--disp);font-size:9px;letter-spacing:.1em}
+.cg-n{font-family:var(--disp);font-weight:600;font-size:22px;line-height:1}
+.cg-raw{font-family:var(--disp);font-size:11px;letter-spacing:.13em}
+.sb{flex:1;padding:9px 11px;min-width:0}
+.sl{display:flex;gap:6px;align-items:baseline;font-family:var(--disp);font-size:10px;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.sl-yr{color:var(--red);font-weight:600}
+.sl-set{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sn{font-family:var(--disp);font-weight:500;font-size:17px;margin:2px 0 0;letter-spacing:.01em}
+.sm{display:flex;gap:8px;font-family:var(--mono);font-size:11px;color:var(--mute);margin-top:2px}
+.sf{display:flex;justify-content:space-between;align-items:baseline;margin-top:6px;padding-top:6px;
+  border-top:1px dashed var(--rule);font-family:var(--mono);font-size:11px}
+.sku{color:var(--mute);letter-spacing:.05em}
+.val{font-weight:600;font-size:13px}
+.flag{margin-top:6px;font-size:11px;font-weight:600;color:var(--green);background:#E4F2EA;
+  padding:4px 7px;border-radius:2px;display:inline-block}
+.flag.soft{color:var(--mute);background:#EDEFF2;font-weight:400}
+.thumb{width:64px;object-fit:cover;border-left:1px solid var(--rule);flex-shrink:0;background:#EDEFF2}
+
+.fab{position:fixed;right:18px;bottom:calc(22px + env(safe-area-inset-bottom));width:56px;height:56px;
+  border-radius:50%;background:var(--red);color:#fff;font-size:30px;line-height:1;z-index:30;
+  box-shadow:0 4px 16px rgba(200,16,46,.4)}
+
+.section{margin-top:22px}
+.sec-hd{display:flex;align-items:baseline;gap:8px;border-bottom:2px solid var(--ink);padding-bottom:5px;margin-bottom:10px}
+.sec-hd h2{font-family:var(--disp);font-weight:500;font-size:14px;letter-spacing:.11em;text-transform:uppercase;margin:0}
+.sec-hd span{font-family:var(--mono);font-size:11px;color:var(--mute)}
+.grow{background:var(--label);border:1px solid var(--rule);border-radius:2px;padding:10px 12px;margin-bottom:7px;cursor:pointer}
+.grow-hd{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.grow-t{font-size:13px;font-weight:500;line-height:1.3}
+.grow-net{font-family:var(--mono);font-size:13px;font-weight:600;white-space:nowrap;color:var(--mute)}
+.grow-net.pos{color:var(--green)}
+.grow-empty{font-size:12px;color:var(--mute);margin-top:5px}
+.bars{margin-top:8px;display:flex;flex-direction:column;gap:4px}
+.bar{display:flex;align-items:center;gap:8px}
+.bar-l{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute);width:42px;flex-shrink:0}
+.bar-tr{flex:1;height:8px;background:#EDEFF2;border-radius:1px;overflow:hidden}
+.bar-f{height:100%}
+.b-raw{background:#9AA2AD}.b-9{background:var(--ink)}.b-10{background:var(--gold)}
+.bar-v{font-family:var(--mono);font-size:11px;width:58px;text-align:right;flex-shrink:0}
+
+.bigstat{background:var(--ink);color:#fff;padding:20px 18px;border-radius:2px}
+.bs-l{font-size:10px;letter-spacing:.14em;text-transform:uppercase;opacity:.55}
+.bs-v{font-family:var(--mono);font-weight:600;font-size:38px;letter-spacing:-.03em;margin:4px 0 2px}
+.bs-d{font-family:var(--mono);font-size:12px;opacity:.8}
+.bs-d.pos{color:#6FD69F}.bs-d.neg{color:#FF8A8A}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.stat{background:var(--label);border:1px solid var(--rule);padding:12px;border-radius:2px}
+.st-l{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.st-v{font-family:var(--mono);font-weight:600;font-size:19px;margin:3px 0 1px}
+.st-s{font-size:11px;color:var(--mute)}
+.warn{margin-top:10px;background:#FDF0D9;border-left:3px solid var(--gold);padding:9px 11px;font-size:12px}
+.tbl{width:100%;border-collapse:collapse;background:var(--label);font-size:13px}
+.tbl th{text-align:left;font-family:var(--disp);font-weight:400;font-size:10px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--mute);padding:7px 9px;border-bottom:1px solid var(--rule)}
+.tbl td{padding:8px 9px;border-bottom:1px solid #EDEFF2;font-family:var(--mono);font-size:12px}
+.tbl td:first-child{font-family:var(--body)}
+.pos{color:var(--green)}.neg{color:var(--red)}
+
+.fld{display:block;margin-bottom:10px}
+.fld-l{display:block;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);
+  margin-bottom:4px;font-weight:500}
+.fld-i{width:100%;padding:11px 12px;border:1px solid var(--rule);border-radius:2px;background:var(--label);
+  font-size:16px;font-family:inherit;color:var(--ink)}
+textarea.fld-i{resize:vertical}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.divider{font-family:var(--disp);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);
+  margin:20px 0 10px;padding-bottom:5px;border-bottom:1px solid var(--rule)}
+.toggle{display:flex;margin-bottom:12px;border:1px solid var(--rule);border-radius:2px;overflow:hidden}
+.tg{flex:1;padding:10px;font-size:13px;background:var(--label);color:var(--mute)}
+.tg.on{background:var(--ink);color:#fff}
+.btn{background:var(--ink);color:#fff;padding:12px 16px;border-radius:2px;font-family:var(--disp);
+  font-size:13px;letter-spacing:.08em;text-transform:uppercase}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--rule)}
+.btn.danger{background:var(--red)}
+.btn.wide{display:block;width:100%;margin-top:10px}
+.empty{text-align:center;padding:50px 20px;color:var(--mute)}
+.note{font-size:12px;color:var(--mute);line-height:1.55;margin-bottom:12px}
+.note code{font-family:var(--mono);background:#DDE1E7;padding:1px 4px;font-size:11px}
+.note.ok{color:var(--green);font-weight:500}
+
+.sheet-wrap{position:fixed;inset:0;background:rgba(21,23,27,.5);z-index:50;display:flex;align-items:flex-end}
+.sheet{background:var(--paper);width:100%;max-height:94vh;display:flex;flex-direction:column;
+  border-radius:6px 6px 0 0;overflow:hidden;max-width:820px;margin:0 auto}
+.sheet-hd{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;
+  background:var(--ink);color:#fff;flex-shrink:0}
+.sheet-t{font-family:var(--mono);font-size:12px;letter-spacing:.08em}
+.x{color:rgba(255,255,255,.7);font-size:13px}
+.x.go{color:#fff;font-weight:600;font-family:var(--disp);letter-spacing:.1em;text-transform:uppercase}
+.sheet-body{overflow-y:auto;padding:16px 14px calc(40px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
+.shots{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.shot{position:relative;background:var(--label);border:1px dashed var(--rule);border-radius:2px;
+  aspect-ratio:3/4;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.shot img{width:100%;height:100%;object-fit:contain}
+.shot-l{font-family:var(--disp);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+.shot-x{position:absolute;top:4px;right:4px;background:rgba(21,23,27,.8);color:#fff;border-radius:2px;
+  font-size:10px;padding:3px 6px;font-family:var(--mono)}
+.verdict{padding:11px 12px;border-radius:2px;font-size:12.5px;line-height:1.5;margin:6px 0 4px}
+.v-grade{background:#E4F2EA;border-left:3px solid var(--green);color:#0F4B30}
+.v-maybe{background:#FDF0D9;border-left:3px solid var(--gold);color:#5C4409}
+.v-skip{background:#EDEFF2;border-left:3px solid var(--mute);color:var(--mute)}
+.lt{background:var(--label);border:1px dashed var(--rule);padding:9px 11px;margin:16px 0 4px}
+.lt span{display:block;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin-bottom:3px}
+.lt code{font-family:var(--mono);font-size:11.5px;line-height:1.5;word-break:break-word}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(90px + env(safe-area-inset-bottom));
+  background:var(--ink);color:#fff;padding:10px 16px;border-radius:3px;font-size:13px;z-index:60;
+  box-shadow:0 4px 20px rgba(0,0,0,.3);max-width:90vw;text-align:center}
+
+/* scan view */
+.hero{background:var(--ink);color:#fff;padding:26px 20px 24px;border-radius:3px;margin-bottom:6px}
+.hero-t{font-family:var(--disp);font-weight:500;font-size:27px;line-height:1.15;margin:0 0 10px}
+.hero-s{font-size:13px;line-height:1.6;opacity:.7;margin:0 0 18px}
+.btn.big{display:block;width:100%;padding:15px;font-size:14px;background:var(--red);margin-bottom:8px}
+.hero .btn.ghost.big{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.3);margin-bottom:0}
+.qrow{display:flex;align-items:center;gap:11px;background:var(--label);border:1px solid var(--rule);
+  border-radius:2px;padding:9px 11px;margin-bottom:7px}
+.qrow.done{cursor:pointer}
+.qimg{width:38px;height:52px;object-fit:cover;border-radius:1px;flex-shrink:0;background:#DDE1E7}
+.qimg.ph{background:repeating-linear-gradient(135deg,#EDEFF2,#EDEFF2 4px,#E3E6EB 4px,#E3E6EB 8px)}
+.qbody{flex:1;min-width:0}
+.qname{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qstate{font-family:var(--mono);font-size:10.5px;color:var(--mute);margin-top:3px}
+.qstate .bad{color:var(--red)}
+.pulse{animation:pl 1.4s ease-in-out infinite}
+@keyframes pl{0%,100%{opacity:.45}50%{opacity:1}}
+.qdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.qdot.ok{background:var(--green)}.qdot.warn{background:var(--gold)}
+.tips{margin-top:24px;border-top:1px solid var(--rule);padding-top:14px}
+.tips p{font-size:12px;line-height:1.6;color:var(--mute);margin:0 0 9px}
+.tips b{color:var(--ink)}
+.flag.warn{color:#5C4409;background:#FDF0D9;font-weight:600}
+@media (min-width:700px){
+  .pane{padding:22px}
+  .sheet-wrap{align-items:center;padding:20px}
+  .sheet{border-radius:6px;max-height:88vh}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<input type="file" id="csvin" accept=".csv,text/csv" hidden>
+<input type="file" id="picin" accept="image/*" hidden>
+<input type="file" id="scancam" accept="image/*" capture="environment" hidden>
+<input type="file" id="scanlib" accept="image/*" multiple hidden>
+
+<script>
+"use strict";
+/* ============ constants ============ */
+const KEY="theslab.v1";
+const CATS=["NBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
+const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
+const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$"};
+const CONF={low:{p10:.08,p9:.32},med:{p10:.22,p9:.45},high:{p10:.42,p9:.42}};
+
+const SEED=[
+["MJ-001","1991","Hoops","Michael Jordan","5","MVP","GCC","10",12,"est"],
+["MJ-002","1997","UD Collector's Choice","Michael Jordan","193","Catch 23","GCC","10",10,"est"],
+["MJ-003","1994","UD Collector's Choice","Michael Jordan","240","","GCC","10",8,"est"],
+["MJ-004","1992","Fleer","Michael Jordan","232","League Leader","GCC","10",10,"est"],
+["MJ-005","1999","Upper Deck","Michael Jordan","67","Athlete of the Century","PSA","9",25,"est"],
+["MJ-006","1989","Hoops","Michael Jordan","21","All-Star","PSA","9",27,"comp"],
+["MJ-007","1995","Topps","Michael Jordan","4","Active Leader","CGC","6.5",8,"est"],
+["MJ-008","1996","Collector's Choice","Michael Jordan","25","Bulls Victory Tour","CGC","9",15,"est"],
+["MJ-009","1995","Topps","Michael Jordan","4","Active Leader","PSA","9",20,"est"],
+["KB-001","1996","Score Board","Kobe Bryant","15","Rookie","PSA","9",35,"comp"],
+["MJ-010","1993","Upper Deck","Michael Jordan","171","Season Leaders","PSA","8",12,"est"],
+["MJ-011","1993","Upper Deck","Michael Jordan","P5","","CGC","10",25,"est"],
+["MJ-012","1998","Fleer 23KT Gold","Michael Jordan","—","1986 Rookie reprint","WCG","10",25,"comp"],
+["MJ-013","1991","Upper Deck","Michael Jordan","44","","PSA","8",12,"comp"],
+["MJ-014","1990","Hoops","Michael Jordan","65","","PSA","8",16,"comp"],
+["MJ-015","1991","Hoops","Michael Jordan","253","All-Star","PSA","8",10,"est"],
+["MJ-016","1990","Fleer","Michael Jordan","26","","PSA","9",60,"comp"],
+["MJ-017","1995","Upper Deck","Michael Jordan","JC1","Jordan Collection ROY","PSA","8",15,"est"]
+];
+
+/* ============ state ============ */
+let S={cards:[],settings:{...DEF_SET}};
+let tab="scan", editing=null, confirmDel=false;
+let queue=[], scanning=false, storeInfo=null;
+let F={q:"",cat:"all",only:"all",sort:"value",limit:50};
+let photoCache={}, picTarget=null, deferredPrompt=null;
+
+function blank(sku){return{id:"c"+Date.now()+Math.random().toString(36).slice(2,6),sku:sku||"",cat:"NBA",
+ year:"",set:"",subject:"",num:"",variant:"",serial:"",qty:1,graded:false,grader:"PSA",grade:"",cert:"",
+ conf:"med",photoF:"",photoB:"",cost:"",acqDate:"",source:"",vRaw:"",v9:"",v10:"",pricedOn:"",
+ status:"owned",listPrice:"",salePrice:"",saleDate:"",salePlatform:"",loc:"",notes:"",review:false};}
+
+function seed(){return SEED.map(r=>{const c=blank(r[0]);c.id=r[0];c.sku=r[0];c.year=r[1];c.set=r[2];
+ c.subject=r[3];c.num=r[4];c.variant=r[5];c.graded=true;c.grader=r[6];c.grade=r[7];c.vRaw=r[8];
+ c.pricedOn="2026-08-13";c.notes=r[9]==="comp"?"[verified comp]":"[estimate — verify before selling]";return c;});}
+
+/* ============ helpers ============ */
+const n=v=>{const x=parseFloat(String(v).replace(/[^0-9.\-]/g,""));return isNaN(x)?0:x;};
+const money=v=>S.settings.currency+n(v).toLocaleString(undefined,{maximumFractionDigits:0});
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+
+function photoURL(c,w){const man=w==="F"?c.photoF:c.photoB;if(man)return man;
+ const s=S.settings;if(!s.photoBase||!c.sku)return"";
+ return s.photoBase.replace(/\/+$/,"")+"/"+c.sku+"-"+(w==="F"?"front":"back")+"."+s.photoExt;}
+
+function title(c){return[c.year,c.set,c.subject,c.num?"#"+c.num:"",c.variant,c.serial?"/"+c.serial:"",
+ c.graded?c.grader+" "+c.grade:"RAW"].filter(Boolean).join(" ");}
+
+function gradeCall(c){
+ if(c.graded)return null;
+ const raw=n(c.vRaw),v9=n(c.v9),v10=n(c.v10);
+ if(!raw&&!v9&&!v10)return{verdict:"unpriced",net:0};
+ const p=CONF[c.conf]||CONF.med, pLow=Math.max(0,1-p.p10-p.p9);
+ const ev=p.p10*v10+p.p9*v9+pLow*raw*1.15-n(S.settings.gradingCost);
+ const net=ev-raw;
+ let verdict="skip";
+ if(v10<n(S.settings.gradingCost)*2)verdict="skip";
+ else if(net>n(S.settings.gradingCost)&&net>raw*.5)verdict="grade";
+ else if(net>0)verdict="maybe";
+ return{verdict,net};
+}
+
+/* ============ storage ============ */
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){toast("Storage full — export a CSV backup");}}
+function load(){try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r);
+ S.cards=d.cards||[];S.settings={...DEF_SET,...(d.settings||{})};return true;}}catch(e){}
+ S.cards=seed();save();return false;}
+
+let _db;
+function db(){if(!_db)_db=new Promise((res,rej)=>{const r=indexedDB.open("theslab",1);
+ r.onupgradeneeded=()=>r.result.createObjectStore("photos");
+ r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});return _db;}
+async function putPhoto(k,v){const d=await db();return new Promise((res,rej)=>{
+ const t=d.transaction("photos","readwrite");t.objectStore("photos").put(v,k);
+ t.oncomplete=()=>res();t.onerror=()=>rej(t.error);});}
+async function getPhoto(k){try{const d=await db();return new Promise(res=>{
+ const t=d.transaction("photos","readonly"),q=t.objectStore("photos").get(k);
+ q.onsuccess=()=>res(q.result||null);q.onerror=()=>res(null);});}catch(e){return null;}}
+async function delPhoto(k){try{const d=await db();const t=d.transaction("photos","readwrite");
+ t.objectStore("photos").delete(k);}catch(e){}}
+
+function compress(file,max=1400,q=.82){return new Promise((res,rej)=>{
+ const fr=new FileReader();
+ fr.onload=()=>{const img=new Image();
+  img.onload=()=>{const s=Math.min(1,max/Math.max(img.width,img.height));
+   const cv=document.createElement("canvas");cv.width=Math.round(img.width*s);cv.height=Math.round(img.height*s);
+   cv.getContext("2d").drawImage(img,0,0,cv.width,cv.height);res(cv.toDataURL("image/jpeg",q));};
+  img.onerror=rej;img.src=fr.result;};
+ fr.onerror=rej;fr.readAsDataURL(file);});}
+
+/* ============ stats ============ */
+function stats(){
+ const owned=S.cards.filter(c=>c.status!=="sold"), sold=S.cards.filter(c=>c.status==="sold");
+ const value=owned.reduce((a,c)=>a+n(c.vRaw)*(n(c.qty)||1),0);
+ const cost=owned.reduce((a,c)=>a+n(c.cost)*(n(c.qty)||1),0);
+ const realized=sold.reduce((a,c)=>a+(n(c.salePrice)*(1-n(S.settings.feePct)/100)-n(c.cost)),0);
+ const cands=owned.filter(c=>{const g=gradeCall(c);return g&&g.verdict==="grade";});
+ const upside=cands.reduce((a,c)=>a+gradeCall(c).net,0);
+ const unpriced=owned.filter(c=>!n(c.vRaw)).length;
+ return{owned,sold,value,cost,realized,cands,upside,unpriced};
+}
+
+
+/* ============ scan engine ============ */
+async function scanAPI(b64){
+ const body=JSON.stringify({image:b64,mediaType:"image/jpeg"});
+ const paths=["/api/scan","/.netlify/functions/scan"];
+ let last="";
+ for(const path of paths){
+  let r;
+  try{r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body});}
+  catch(_){last="Couldn't reach "+path;continue;}
+  const ct=(r.headers.get("content-type")||"");
+  if(r.status===404||ct.indexOf("json")===-1){last="No function at "+path+" (HTTP "+r.status+")";continue;}
+  const j=await r.json();
+  if(!r.ok)throw new Error(j.error||("Scan failed, HTTP "+r.status));
+  return j;
+ }
+ throw new Error(last+" — check the deploy log lists a function called scan");
+}
+function enqueue(files){
+ for(const f of files)queue.push({qid:"q"+Date.now()+Math.random().toString(36).slice(2,5),
+  file:f,name:f.name,state:"waiting"});
+ tab="scan";render();pump();
+}
+async function pump(){
+ if(scanning)return;
+ const it=queue.find(q=>q.state==="waiting");if(!it)return;
+ scanning=true;it.state="reading";render();
+ try{
+  const shot=await compress(it.file);
+  it.preview=shot;render();
+  const r=await scanAPI(shot.split(",")[1]);
+  const c=blank(nextSku());
+  Object.assign(c,{
+   cat:CATS.indexOf(r.cat)>-1?r.cat:"Other",
+   year:r.year||"",set:r.set||"",subject:r.subject||"",num:r.num||"",
+   variant:r.variant||"",serial:r.serial||"",
+   graded:!!r.graded,grader:r.grader||"PSA",grade:r.grade||"",cert:r.cert||"",
+   vRaw:n(r.vRaw)||"",v9:n(r.v9)||"",v10:n(r.v10)||"",
+   pricedOn:new Date().toISOString().slice(0,10),
+   notes:r.note||"",review:r.confidence!=="high"});
+  S.cards.unshift(c);save();
+  await putPhoto(c.id+"-F",shot);
+  it.state="done";it.cardId=c.id;it.conf=r.confidence;
+  it.label=[r.year,r.set,r.subject].filter(Boolean).join(" ")||"Unidentified";
+ }catch(e){it.state="failed";it.err=e.message||String(e);}
+ scanning=false;render();pump();
+}
+function viewScan(){
+ const pend=queue.filter(q=>q.state==="waiting"||q.state==="reading").length;
+ const done=queue.filter(q=>q.state==="done").length;
+ let h=`<div class="pane"><div class="hero">
+  <h1 class="hero-t">Photograph a card.<br>Get everything else.</h1>
+  <p class="hero-s">Reads the card, searches for what it actually sells for, keeps the photo. Shoot a stack — they process one after another.</p>
+  <button class="btn big" data-act="shoot">Take a photo</button>
+  <button class="btn ghost big" data-act="pick">Choose from library</button></div>`;
+ if(queue.length){
+  h+=`<div class="section"><div class="sec-hd"><h2>Queue</h2><span>${pend?pend+" to go":done+" done"}</span></div>`;
+  h+=queue.map(q=>`<div class="qrow ${q.state}"${q.cardId?` data-open="${q.cardId}"`:""}>
+   ${q.preview?`<img class="qimg" src="${q.preview}" alt="">`:`<div class="qimg ph"></div>`}
+   <div class="qbody"><div class="qname">${esc(q.state==="done"?q.label:q.name)}</div>
+   <div class="qstate">${q.state==="waiting"?"waiting":
+    q.state==="reading"?`<span class="pulse">reading the card, checking comps…</span>`:
+    q.state==="done"?(q.conf==="high"?"identified":"identified — worth a look"):
+    `<span class="bad">${esc(q.err)}</span>`}</div></div>
+   ${q.state==="done"?`<span class="qdot ${q.conf==="high"?"ok":"warn"}"></span>`:""}
+  </div>`).join("");
+  if(!pend)h+=`<button class="btn ghost wide" data-act="clearq">Clear queue</button>`;
+  h+=`</div>`;
+ }
+ h+=`<div class="tips">
+  <p><b>Shoot it flat, fill the frame.</b> Indirect window light, no flash — glare on gloss is what breaks a read.</p>
+  <p><b>Slabs work too.</b> It reads the grader and grade off the label.</p>
+  <p><b>Check anything flagged amber.</b> Base cards from big sets look alike, and a wrong set means a wrong price.</p>
+  <p><b>Roughly 3-8 cents a card.</b> Billed to your own API account. A thousand cards lands around $30-80.</p></div></div>`;
+ return h;
+}
+
+/* ============ render ============ */
+function render(){
+ const st=stats();
+ let h=`<header class="hdr"><div class="hdr-top">
+  <div class="wordmark"><span class="wm-1">THE</span><span class="wm-2">SLAB</span></div>
+  <span class="save" id="saveflag"></span></div>
+  <div class="ticker">
+   ${tick("cards",st.owned.length)}${tick("value",money(st.value))}
+   ${tick("cost",money(st.cost))}${tick("grade now",st.cands.length,st.cands.length>0)}
+  </div></header>
+  <nav class="tabs">${[["scan","Scan"],["collection","Cards"],["grading","Grading"],["money","Money"],["setup","Setup"]]
+   .map(([k,l])=>`<button class="tab${tab===k?" on":""}" data-tab="${k}">${l}</button>`).join("")}</nav>`;
+ h+=tab==="scan"?viewScan():tab==="collection"?viewCollection():tab==="grading"?viewGrading():tab==="money"?viewMoney(st):viewSetup();
+ if(tab==="collection")h+=`<button class="fab" data-act="new" aria-label="Add a card">+</button>`;
+ if(editing)h+=viewSheet();
+ document.getElementById("app").innerHTML=h;
+ positionTabs();
+ if(editing)hydratePhotos();
+ else document.querySelectorAll("[data-lazy]").forEach(async el=>{
+   const d=await getPhoto(el.dataset.lazy);if(d)el.src=d;});
+}
+function tick(l,v,hot){return`<div class="tick${hot?" hot":""}"><div class="tick-v">${v}</div><div class="tick-l">${l}</div></div>`;}
+function positionTabs(){const hd=document.querySelector(".hdr");const tb=document.querySelector(".tabs");
+ if(hd&&tb)tb.style.top=hd.offsetHeight+"px";}
+
+function viewCollection(){
+ let list=S.cards.filter(c=>{
+  if(F.cat!=="all"&&c.cat!==F.cat)return false;
+  if(F.only==="raw"&&c.graded)return false;
+  if(F.only==="graded"&&!c.graded)return false;
+  if(F.only==="unpriced"&&n(c.vRaw))return false;
+  if(F.only==="review"&&!c.review)return false;
+  if(F.only==="sold"&&c.status!=="sold")return false;
+  if(F.only!=="sold"&&c.status==="sold")return false;
+  if(!F.q)return true;
+  return (c.subject+" "+c.set+" "+c.year+" "+c.num+" "+c.variant+" "+c.sku+" "+c.notes).toLowerCase().includes(F.q.toLowerCase());
+ });
+ list.sort((a,b)=>F.sort==="value"?n(b.vRaw)-n(a.vRaw):F.sort==="year"?n(b.year)-n(a.year):
+  (a.subject||"").localeCompare(b.subject||""));
+ const cats=["all",...new Set(S.cards.map(c=>c.cat))];
+ let h=`<div class="pane"><input class="search" id="q" placeholder="Search player, set, year, SKU" value="${esc(F.q)}">
+  <div class="chips">${cats.map(c=>`<button class="chip${F.cat===c?" on":""}" data-cat="${esc(c)}">${c==="all"?"All sports":esc(c)}</button>`).join("")}</div>
+  <div class="chips">${[["all","Everything"],["review","Needs review"],["raw","Raw"],["graded","Graded"],["unpriced","No price yet"],["sold","Sold"]]
+   .map(([k,l])=>`<button class="chip${F.only===k?" on":""}" data-only="${k}">${l}</button>`).join("")}
+   <button class="chip alt" data-act="sort">Sort: ${F.sort}</button></div>
+  <div class="count">${list.length} card${list.length===1?"":"s"}</div>`;
+ if(!list.length)h+=`<div class="empty"><p>Nothing here yet.</p><button class="btn" data-act="new">Add your first card</button></div>`;
+ else{h+=list.slice(0,F.limit).map(slabRow).join("");
+  if(list.length>F.limit)h+=`<button class="btn ghost wide" data-act="more">Show 50 more (${list.length-F.limit} left)</button>`;}
+ return h+"</div>";
+}
+
+function slabRow(c){
+ const g=gradeCall(c), f=photoURL(c,"F");
+ const cls=c.graded?"cg "+(n(c.grade)>=10?"g10":n(c.grade)>=9?"g9":"g8"):"cg raw";
+ return`<article class="slab" data-open="${c.id}">
+  <div class="${cls}">${c.graded?`<span class="cg-co">${esc(c.grader)}</span><span class="cg-n">${esc(c.grade)}</span>`:`<span class="cg-raw">RAW</span>`}</div>
+  <div class="sb">
+   <div class="sl"><span class="sl-yr">${esc(c.year||"—")}</span><span class="sl-set">${esc(c.set||"Unset")}</span></div>
+   <h3 class="sn">${esc(c.subject||"Untitled card")}</h3>
+   <div class="sm">${c.num?`<span>#${esc(c.num)}</span>`:""}${c.variant?`<span>${esc(c.variant)}</span>`:""}${c.serial?`<span>/${esc(c.serial)}</span>`:""}${n(c.qty)>1?`<span>×${esc(c.qty)}</span>`:""}</div>
+   <div class="sf"><span class="sku">${esc(c.sku)}</span><span class="val">${n(c.vRaw)?money(c.vRaw):"no price"}</span></div>
+   ${c.review?`<div class="flag warn">Check this one</div>`:""}
+   ${g&&g.verdict==="grade"?`<div class="flag">Grade this — +${money(g.net)} expected</div>`:""}
+   ${g&&g.verdict==="maybe"?`<div class="flag soft">Borderline grading call</div>`:""}
+  </div>
+  ${f?`<img class="thumb" src="${esc(f)}" alt="" loading="lazy" onerror="this.remove()">`
+     :`<img class="thumb" data-lazy="${c.id}-F" alt="" onerror="this.remove()">`}
+ </article>`;
+}
+
+function viewGrading(){
+ const rows=S.cards.filter(c=>!c.graded&&c.status!=="sold").map(c=>({c,g:gradeCall(c)}))
+   .filter(r=>r.g).sort((a,b)=>b.g.net-a.g.net);
+ const G=v=>rows.filter(r=>r.g.verdict===v);
+ let h=`<div class="pane"><div class="note">Each raw card is scored against your grading cost of ${money(S.settings.gradingCost)} and the odds you set on its condition. Both live in Setup.</div>`;
+ h+=sec("Send these in",G("grade"))+sec("Borderline",G("maybe"))+sec("Need prices before I can call it",G("unpriced").slice(0,40));
+ if(!rows.length)h+=`<div class="empty"><p>No raw cards yet. Add some and they'll be scored here.</p></div>`;
+ return h+"</div>";
+}
+function sec(t,rows){
+ if(!rows.length)return"";
+ return`<div class="section"><div class="sec-hd"><h2>${t}</h2><span>${rows.length}</span></div>${rows.map(growRow).join("")}</div>`;
+}
+function growRow({c,g}){
+ const raw=n(c.vRaw),v9=n(c.v9),v10=n(c.v10),max=Math.max(raw,v9,v10,1);
+ return`<div class="grow" data-open="${c.id}">
+  <div class="grow-hd"><span class="grow-t">${esc([c.year,c.set,c.subject,c.num?"#"+c.num:""].filter(Boolean).join(" "))}</span>
+  ${g.verdict!=="unpriced"?`<span class="grow-net${g.net>0?" pos":""}">${g.net>0?"+":""}${money(g.net)}</span>`:""}</div>
+  ${g.verdict==="unpriced"?`<div class="grow-empty">Add a raw value plus PSA 9 / 10 comps to score this one.</div>`:
+   `<div class="bars">${bar("raw",raw,max,"b-raw")}${bar("psa 9",v9,max,"b-9")}${bar("psa 10",v10,max,"b-10")}</div>`}
+ </div>`;
+}
+function bar(l,v,max,cls){return`<div class="bar"><span class="bar-l">${l}</span>
+ <div class="bar-tr"><div class="bar-f ${cls}" style="width:${Math.max(2,(v/max)*100)}%"></div></div>
+ <span class="bar-v">${money(v)}</span></div>`;}
+
+function viewMoney(st){
+ const m={};st.owned.forEach(c=>{m[c.cat]=m[c.cat]||{n:0,v:0,c:0};
+  m[c.cat].n+=n(c.qty)||1;m[c.cat].v+=n(c.vRaw)*(n(c.qty)||1);m[c.cat].c+=n(c.cost)*(n(c.qty)||1);});
+ const byCat=Object.entries(m).sort((a,b)=>b[1].v-a[1].v);
+ const pl=st.value-st.cost;
+ let h=`<div class="pane"><div class="bigstat"><div class="bs-l">Portfolio value</div>
+  <div class="bs-v">${money(st.value)}</div>
+  <div class="bs-d ${pl>=0?"pos":"neg"}">${pl>=0?"▲":"▼"} ${money(Math.abs(pl))} against ${money(st.cost)} in</div></div>
+  <div class="grid2">
+   <div class="stat"><div class="st-l">Realized profit</div><div class="st-v">${money(st.realized)}</div><div class="st-s">${st.sold.length} sold, ${esc(S.settings.feePct)}% fees</div></div>
+   <div class="stat"><div class="st-l">Grading upside</div><div class="st-v">${money(st.upside)}</div><div class="st-s">${st.cands.length} candidates</div></div></div>`;
+ if(st.unpriced)h+=`<div class="warn">${st.unpriced} cards have no price yet — portfolio value is understated until you fill them in.</div>`;
+ h+=`<div class="section"><div class="sec-hd"><h2>By category</h2><span>${byCat.length}</span></div>
+  <table class="tbl"><thead><tr><th>Category</th><th>Cards</th><th>Cost</th><th>Value</th></tr></thead><tbody>
+  ${byCat.map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v.n}</td><td>${money(v.c)}</td><td style="font-weight:600">${money(v.v)}</td></tr>`).join("")}
+  </tbody></table></div>`;
+ if(st.sold.length)h+=`<div class="section"><div class="sec-hd"><h2>Sold</h2><span>${st.sold.length}</span></div>
+  <table class="tbl"><thead><tr><th>Card</th><th>Sold</th><th>Net</th></tr></thead><tbody>
+  ${st.sold.map(c=>{const net=n(c.salePrice)*(1-n(S.settings.feePct)/100)-n(c.cost);
+   return`<tr><td>${esc(c.subject)} ${esc(c.year)}</td><td>${money(c.salePrice)}</td><td class="${net>=0?"pos":"neg"}">${money(net)}</td></tr>`;}).join("")}
+  </tbody></table></div>`;
+ return h+"</div>";
+}
+
+function viewSetup(){
+ return`<div class="pane">
+ <div class="section"><div class="sec-hd"><h2>Photos</h2></div>
+  <p class="note">Two ways to do this. <b>Snap them in the app</b> — open any card and tap Front or Back. Photos are compressed and stored on this device, no account needed.<br><br>
+  <b>Or host them online</b>, which you'll want for selling. Name each image after its SKU — <code>MJ-001-front.jpg</code> — put them all in one hosted folder, and paste that folder's URL below. Links build themselves.</p>
+  ${fld("Photo folder URL","photoBase",S.settings.photoBase,"https://res.cloudinary.com/you/cards","set")}
+  ${fld("File extension","photoExt",S.settings.photoExt,"jpg","set")}</div>
+
+ <div class="section"><div class="sec-hd"><h2>Numbers</h2></div>
+  ${fld("Grading cost per card (incl. shipping)","gradingCost",S.settings.gradingCost,"","set","number")}
+  ${fld("Selling fees %","feePct",S.settings.feePct,"","set","number")}
+  ${fld("Currency symbol","currency",S.settings.currency,"$","set")}</div>
+
+ <div class="section"><div class="sec-hd"><h2>Move your data</h2></div>
+  <button class="btn wide" data-act="exp-full">Export full inventory (CSV)</button>
+  <button class="btn ghost wide" data-act="exp-list">Export listing sheet (CSV)</button>
+  <button class="btn ghost wide" data-act="imp">Import a CSV</button>
+  <p class="note">Both open straight in Excel or Google Sheets. The listing sheet is shaped for bulk upload to eBay or Whatnot: title, price, photo links. Export regularly — this is your backup.</p></div>
+
+ <div class="section"><div class="sec-hd"><h2>Photo storage</h2></div>
+  <p class="note">${storeInfo?`Using <b>${storeInfo.used}</b> of about <b>${storeInfo.quota}</b> available (${storeInfo.pct}%).${storeInfo.persisted?" Protected from automatic cleanup.":""}`:"Checking…"}</p>
+  ${storeInfo&&!storeInfo.persisted?`<button class="btn ghost wide" data-act="persist">Protect photos from cleanup</button>`:""}
+  <p class="note">Photos live on this device at roughly 250KB each. Browsers can evict storage when space runs low — tap the button above to ask for protection, and keep CSV backups regardless.</p></div>
+
+ <div class="section"><div class="sec-hd"><h2>This app</h2></div>
+  <button class="btn wide" data-act="install" id="installbtn">Add to home screen</button>
+  <p class="note">On iPhone the button won't do it — tap Share, then <b>Add to Home Screen</b>. Your cards live on this device, so clearing browser data wipes them. Keep CSV backups.</p></div>
+ </div>`;
+}
+
+function viewSheet(){
+ const c=editing, g=gradeCall(c);
+ let h=`<div class="sheet-wrap"><div class="sheet">
+  <div class="sheet-hd"><button class="x" data-act="cancel">Cancel</button>
+  <span class="sheet-t">${esc(c.sku||"New card")}</span>
+  <button class="x go" data-act="save">Save</button></div><div class="sheet-body">
+  <div class="shots">
+   <div class="shot" data-pic="F"><span class="shot-l">Front</span><img id="imgF" style="display:none"><span class="shot-x" data-clear="F" style="display:none">clear</span></div>
+   <div class="shot" data-pic="B"><span class="shot-l">Back</span><img id="imgB" style="display:none"><span class="shot-x" data-clear="B" style="display:none">clear</span></div>
+  </div>
+  ${fld("SKU","sku",c.sku,"MJ-018")}
+  <div class="row2">${sel("Category","cat",c.cat,CATS)}${fld("Year","year",c.year,"1996")}</div>
+  ${fld("Set","set",c.set,"Topps Chrome")}
+  ${fld("Player or character","subject",c.subject,"Michael Jordan")}
+  <div class="row2">${fld("Card no.","num",c.num,"23")}${fld("Serial /","serial",c.serial,"99")}</div>
+  ${fld("Parallel or insert","variant",c.variant,"Refractor, Holo, 1st Edition")}
+  <div class="row2">${fld("Quantity","qty",c.qty,"","f","number")}${fld("Stored in","loc",c.loc,"Box A")}</div>
+  <div class="divider">Condition</div>
+  <div class="toggle"><button class="tg${!c.graded?" on":""}" data-graded="0">Raw</button>
+   <button class="tg${c.graded?" on":""}" data-graded="1">Graded</button></div>`;
+ if(c.graded)h+=`<div class="row2">${sel("Grader","grader",c.grader,GRADERS)}${fld("Grade","grade",c.grade,"10")}</div>
+  ${fld("Cert number","cert",c.cert,"12345678")}`;
+ else h+=sel("How clean does it look?","conf",c.conf,[["low","Rough — soft corners or off-centre"],["med","Decent — normal pack condition"],["high","Sharp — looks pack-fresh"]]);
+ h+=`<div class="divider">Money</div>
+  <div class="row2">${fld("What you paid","cost",c.cost,"","f","number")}${fld("Bought on","acqDate",c.acqDate,"","f","date")}</div>
+  ${fld("Bought from","source",c.source,"eBay, card show, LCS")}
+  ${fld("Current value as-is","vRaw",c.vRaw,"","f","number")}`;
+ if(!c.graded)h+=`<div class="row2">${fld("Value if PSA 9","v9",c.v9,"","f","number")}${fld("Value if PSA 10","v10",c.v10,"","f","number")}</div>`;
+ h+=fld("Prices checked on","pricedOn",c.pricedOn,"","f","date");
+ if(g&&g.verdict!=="unpriced"){
+  const t=g.verdict==="grade"?`Worth grading — about ${money(g.net)} more than selling it raw, after the ${money(S.settings.gradingCost)} fee.`
+   :g.verdict==="maybe"?`Marginal — roughly ${money(g.net)} of upside. Only worth it if you're sending a batch anyway.`
+   :`Not worth grading. The fee eats the gain.`;
+  h+=`<div class="verdict v-${g.verdict}">${t}</div>`;}
+ h+=`<div class="divider">Selling</div>
+  ${sel("Status","status",c.status,[["owned","In the collection"],["listed","Listed for sale"],["sold","Sold"]])}`;
+ if(c.status==="listed")h+=fld("Asking price","listPrice",c.listPrice,"","f","number");
+ if(c.status==="sold")h+=`<div class="row2">${fld("Sold for","salePrice",c.salePrice,"","f","number")}${fld("Sold on","saleDate",c.saleDate,"","f","date")}</div>
+  ${fld("Sold where","salePlatform",c.salePlatform,"eBay")}`;
+ h+=`<div class="divider">Links and notes</div>
+  ${fld("Front photo URL (blank = auto or device photo)","photoF",c.photoF,S.settings.photoBase?"auto":"paste a link")}
+  ${fld("Back photo URL","photoB",c.photoB,S.settings.photoBase?"auto":"paste a link")}
+  ${fld("Notes","notes",c.notes,"","f","area")}
+  <div class="lt"><span>Listing title</span><code>${esc(title(c))}</code></div>
+  <button class="btn wide" data-act="save-next">Save and add another</button>`;
+ h+=confirmDel?`<div style="background:#fff;border:1px solid var(--red);padding:12px;margin-top:10px;font-size:13px;border-radius:2px">
+   Delete ${esc(c.sku||"this card")} for good?<div style="display:flex;gap:8px;margin-top:10px">
+   <button class="btn ghost" style="flex:1" data-act="nodel">Keep</button>
+   <button class="btn danger" style="flex:1" data-act="del">Delete</button></div></div>`
+  :`<button class="btn danger wide" data-act="askdel">Delete this card</button>`;
+ return h+`</div></div></div>`;
+}
+
+function fld(label,k,v,ph,kind,type){
+ kind=kind||"f";
+ if(type==="area")return`<label class="fld"><span class="fld-l">${label}</span>
+  <textarea class="fld-i" rows="2" data-${kind}="${k}" placeholder="${esc(ph||"")}">${esc(v)}</textarea></label>`;
+ return`<label class="fld"><span class="fld-l">${label}</span>
+  <input class="fld-i" type="${type||"text"}" ${type==="number"?'inputmode="decimal"':""} data-${kind}="${k}"
+   value="${esc(v)}" placeholder="${esc(ph||"")}"></label>`;
+}
+function sel(label,k,v,opts){
+ return`<label class="fld"><span class="fld-l">${label}</span><select class="fld-i" data-f="${k}">
+  ${opts.map(o=>{const[val,lab]=Array.isArray(o)?o:[o,o];
+   return`<option value="${esc(val)}"${v===val?" selected":""}>${esc(lab)}</option>`;}).join("")}
+ </select></label>`;
+}
+
+async function hydratePhotos(){
+ for(const w of["F","B"]){
+  const el=document.getElementById("img"+w);if(!el)continue;
+  const url=photoURL(editing,w);
+  const d=url||await getPhoto(editing.id+"-"+w);
+  if(d){el.src=d;el.style.display="block";
+   const x=document.querySelector(`[data-clear="${w}"]`);if(x&&!url)x.style.display="block";
+   const lab=el.parentElement.querySelector(".shot-l");if(lab)lab.style.display="none";}
+ }
+}
+
+/* ============ CSV ============ */
+const FULLCOLS=["sku","cat","year","set","subject","num","variant","serial","qty","graded","grader","grade",
+ "cert","conf","cost","acqDate","source","vRaw","v9","v10","pricedOn","status","listPrice","salePrice",
+ "saleDate","salePlatform","loc","photoF","photoB","notes"];
+function csvEsc(v){const s=String(v==null?"":v);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
+function exportCSV(kind){
+ const cols=kind==="list"?["sku","title","price","qty","photo_front","photo_back","category","condition"]:FULLCOLS;
+ const rows=S.cards.map(c=>kind==="list"
+  ?[c.sku,title(c),n(c.listPrice)||n(c.vRaw),c.qty,photoURL(c,"F"),photoURL(c,"B"),c.cat,c.graded?c.grader+" "+c.grade:"Ungraded"]
+  :cols.map(k=>k==="photoF"?photoURL(c,"F"):k==="photoB"?photoURL(c,"B"):c[k]));
+ const csv=[cols.join(","),...rows.map(r=>r.map(csvEsc).join(","))].join("\n");
+ const a=document.createElement("a");
+ a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8;"}));
+ a.download=`the-slab-${kind}-${new Date().toISOString().slice(0,10)}.csv`;a.click();
+ toast(`Exported ${S.cards.length} rows`);
+}
+function splitRow(line){const out=[];let cur="",q=false;
+ for(let i=0;i<line.length;i++){const ch=line[i];
+  if(q){if(ch==='"'&&line[i+1]==='"'){cur+='"';i++;}else if(ch==='"')q=false;else cur+=ch;}
+  else if(ch==='"')q=true;else if(ch===","){out.push(cur);cur="";}else cur+=ch;}
+ out.push(cur);return out;}
+function importCSV(text){
+ const lines=text.split(/\r?\n/).filter(l=>l.trim());
+ const head=splitRow(lines[0]).map(s=>s.trim());
+ const added=lines.slice(1).map(ln=>{const vals=splitRow(ln),o=blank("");
+  head.forEach((k,i)=>{if(k in o)o[k]=k==="graded"?/true|yes|1/i.test(vals[i]||""):(vals[i]||"");});
+  o.id="i"+Date.now()+Math.random().toString(36).slice(2,6);return o;})
+  .filter(c=>c.subject||c.sku);
+ S.cards=[...added,...S.cards];save();render();toast(`Imported ${added.length} cards`);
+}
+
+function toast(msg){
+ const d=document.createElement("div");d.className="toast";d.textContent=msg;document.body.appendChild(d);
+ setTimeout(()=>d.remove(),2600);
+}
+function nextSku(){
+ const ns=S.cards.map(c=>parseInt(String(c.sku).replace(/\D/g,""),10)).filter(x=>!isNaN(x));
+ return"C-"+String((ns.length?Math.max(...ns):0)+1).padStart(4,"0");
+}
+function bumpSku(sku){const m=String(sku).match(/^(.*?)(\d+)$/);
+ return m?m[1]+String(parseInt(m[2],10)+1).padStart(m[2].length,"0"):"";}
+
+/* ============ events ============ */
+document.addEventListener("click",async e=>{
+ const t=e.target.closest("[data-tab],[data-act],[data-open],[data-cat],[data-only],[data-graded],[data-pic],[data-clear]");
+ if(!t)return;
+ const d=t.dataset;
+ if(d.clear!==undefined&&d.clear){e.stopPropagation();await delPhoto(editing.id+"-"+d.clear);render();return;}
+ if(d.pic){picTarget=d.pic;document.getElementById("picin").click();return;}
+ if(d.tab){tab=d.tab;render();window.scrollTo(0,0);return;}
+ if(d.open){editing=JSON.parse(JSON.stringify(S.cards.find(c=>c.id===d.open)));confirmDel=false;render();return;}
+ if(d.cat!==undefined&&d.cat){F.cat=d.cat;F.limit=50;render();return;}
+ if(d.only){F.only=d.only;F.limit=50;render();return;}
+ if(d.graded!==undefined&&editing){editing.graded=d.graded==="1";render();return;}
+ switch(d.act){
+  case"shoot":document.getElementById("scancam").click();break;
+  case"pick":document.getElementById("scanlib").click();break;
+  case"clearq":queue=[];render();break;
+  case"persist":if(navigator.storage&&navigator.storage.persist){
+    const ok=await navigator.storage.persist();toast(ok?"Storage protected":"Browser declined — keep CSV backups");
+    await measure();render();}break;
+  case"new":editing=blank(nextSku());confirmDel=false;render();break;
+  case"sort":F.sort=F.sort==="value"?"year":F.sort==="year"?"name":"value";render();break;
+  case"more":F.limit+=50;render();break;
+  case"cancel":editing=null;render();break;
+  case"save":commit();editing=null;render();toast("Saved");break;
+  case"save-next":{const prev=commit();
+   editing={...blank(bumpSku(prev.sku)||nextSku()),cat:prev.cat,year:prev.year,set:prev.set,
+    source:prev.source,loc:prev.loc,acqDate:prev.acqDate};confirmDel=false;render();toast("Saved");break;}
+  case"askdel":confirmDel=true;render();break;
+  case"nodel":confirmDel=false;render();break;
+  case"del":await delPhoto(editing.id+"-F");await delPhoto(editing.id+"-B");
+   S.cards=S.cards.filter(c=>c.id!==editing.id);save();editing=null;render();toast("Deleted");break;
+  case"exp-full":exportCSV("full");break;
+  case"exp-list":exportCSV("list");break;
+  case"imp":document.getElementById("csvin").click();break;
+  case"install":
+   if(deferredPrompt){deferredPrompt.prompt();deferredPrompt=null;}
+   else toast("On iPhone: tap Share, then Add to Home Screen");
+   break;
+ }
+});
+function commit(){
+ editing.review=false;
+ const i=S.cards.findIndex(c=>c.id===editing.id);
+ if(i===-1)S.cards.unshift(editing);else S.cards[i]=editing;
+ save();return editing;
+}
+document.addEventListener("input",e=>{
+ const el=e.target;
+ if(el.id==="q"){F.q=el.value;F.limit=50;
+  const pane=document.querySelector(".pane");if(!pane)return;
+  clearTimeout(window._qt);window._qt=setTimeout(()=>{const p=el.selectionStart;render();
+   const q2=document.getElementById("q");if(q2){q2.focus();q2.setSelectionRange(p,p);}},220);return;}
+ if(el.dataset.f&&editing){editing[el.dataset.f]=el.value;
+  const lt=document.querySelector(".lt code");if(lt)lt.textContent=title(editing);
+  if(["graded","status","conf","vRaw","v9","v10"].includes(el.dataset.f)){
+   clearTimeout(window._rt);window._rt=setTimeout(()=>{const a=document.activeElement,k=a&&a.dataset?a.dataset.f:null,
+    p=a&&a.selectionStart;render();if(k){const el2=document.querySelector(`[data-f="${k}"]`);
+    if(el2){el2.focus();try{el2.setSelectionRange(p,p);}catch(_){}}}},450);}
+  return;}
+ if(el.dataset.set){S.settings[el.dataset.set]=el.value;save();}
+});
+document.addEventListener("change",async e=>{
+ if((e.target.id==="scancam"||e.target.id==="scanlib")&&e.target.files.length){
+  enqueue(e.target.files);e.target.value="";return;}
+ if(e.target.id==="csvin"&&e.target.files[0]){
+  const fr=new FileReader();fr.onload=()=>{try{importCSV(String(fr.result));}
+   catch(_){toast("Import failed — needs a CSV with a header row");}};
+  fr.readAsText(e.target.files[0]);e.target.value="";}
+ if(e.target.id==="picin"&&e.target.files[0]&&editing){
+  toast("Processing photo…");
+  try{const d=await compress(e.target.files[0]);
+   await putPhoto(editing.id+"-"+picTarget,d);render();}
+  catch(_){toast("Couldn't read that image");}
+  e.target.value="";}
+});
+window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;});
+window.addEventListener("resize",positionTabs);
+
+async function measure(){
+ if(!navigator.storage||!navigator.storage.estimate)return;
+ try{const e=await navigator.storage.estimate();
+  const fmt=b=>b>1e9?(b/1e9).toFixed(1)+" GB":Math.round(b/1e6)+" MB";
+  storeInfo={used:fmt(e.usage||0),quota:fmt(e.quota||0),
+   pct:e.quota?Math.round((e.usage/e.quota)*100):0,
+   persisted:navigator.storage.persisted?await navigator.storage.persisted():false};
+ }catch(_){}
+}
+
+/* ============ boot ============ */
+load();render();measure().then(()=>{if(tab==="setup")render();});
+if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>
