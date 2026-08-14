@@ -244,7 +244,7 @@ textarea.fld-i{resize:vertical}
 "use strict";
 /* ============ constants ============ */
 const KEY="theslab.v1";
-const VERSION="2026.08.14-diag-1";
+const VERSION="2026.08.14-diag-2";
 const CATS=["NBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90};
@@ -377,7 +377,7 @@ async function pullAll(){
  if(!sb||!user)return;
  setSync("syncing");
  try{
-  const {data,error}=await sb.from("cards").select("*").order("updated_at",{ascending:false});
+  const {data,error}=await raced(sb.from("cards").select("*").order("updated_at",{ascending:false}),25000,"sync");
   if(error)throw error;
   S.cards=(data||[]).map(fromRow);
   const s=await sb.from("settings").select("data").eq("user_id",user.id).maybeSingle();
@@ -389,7 +389,7 @@ async function pushCard(c){
  save();
  if(!sb||!user){setSync("offline");return;}
  setSync("saving");
- try{const {error}=await sb.from("cards").upsert(toRow(c),{onConflict:"id"});
+ try{const {error}=await raced(sb.from("cards").upsert(toRow(c),{onConflict:"id"}),20000,"save");
   if(error)throw error;
   setSync("saved");setTimeout(()=>setSync(""),1200);
  }catch(e){setSync("save failed");}
@@ -423,8 +423,8 @@ async function uploadPhoto(cardId,which,dataUrl){
  if(!sb||!user)throw new Error("Not signed in");
  const blob=await (await fetch(dataUrl)).blob();
  const path=`${user.id}/${cardId}-${which==="F"?"front":"back"}.jpg`;
- const {error}=await sb.storage.from("cards").upload(path,blob,
-  {upsert:true,contentType:"image/jpeg",cacheControl:"3600"});
+ const {error}=await raced(sb.storage.from("cards").upload(path,blob,
+  {upsert:true,contentType:"image/jpeg",cacheControl:"3600"}),40000,"photo upload");
  if(error)throw error;
  const {data}=sb.storage.from("cards").getPublicUrl(path);
  return data.publicUrl+"?v="+Date.now();
@@ -458,6 +458,10 @@ function stats(){
 
 
 /* ============ scan engine ============ */
+function raced(promise,ms,label){
+ return Promise.race([promise,
+  new Promise((_,rej)=>setTimeout(()=>rej(new Error((label||"operation")+" timed out")),ms))]);
+}
 function withTimeout(ms){
  const ac=new AbortController();
  const t=setTimeout(()=>ac.abort(),ms);
@@ -495,6 +499,11 @@ async function pump(){
  if(scanning)return;
  const it=queue.find(q=>q.state==="waiting");if(!it)return;
  scanning=true;it.state="reading";render();
+ const guard=setTimeout(()=>{
+  if(it.state==="reading"){it.state="failed";
+   it.err="Stalled past 100s — check Setup → Diagnostics";
+   clearInterval(window._tick);scanning=false;render();pump();}
+ },100000);
  try{
   const shot=await compress(it.file);
   it.preview=shot;it.t0=Date.now();render();
@@ -511,15 +520,21 @@ async function pump(){
    variant:r.variant||"",serial:r.serial||"",
    graded:!!r.graded,grader:r.grader||"PSA",grade:r.grade||"",cert:r.cert||"",
    notes:r.note||"",review:r.confidence!=="high"});
-  S.cards.unshift(c);
-  try{c.photoF=await uploadPhoto(c.id,"F",shot);}catch(_){}
-  await pushCard(c);
+  S.cards.unshift(c);save();
   it.state="done";it.cardId=c.id;it.conf=r.confidence;
   it.label=[r.year,r.set,r.subject].filter(Boolean).join(" ")||"Unidentified";
+  clearInterval(window._tick);
+  render();
+  // storage and sync run in the background — a slow upload must never stall the queue
+  raced(uploadPhoto(c.id,"F",shot),45000,"photo upload")
+   .then(u=>{c.photoF=u;return raced(pushCard(c),20000,"save");})
+   .catch(()=>{setSync("photo failed");return raced(pushCard(c),20000,"save").catch(()=>{});})
+   .then(()=>render());
   if(c.subject||c.set)queueReprice([c]);
- }catch(e){it.state="failed";it.err=e.message||String(e);}
+ }catch(e){if(it.state!=="failed"){it.state="failed";it.err=e.message||String(e);}}
+ clearTimeout(guard);
  clearInterval(window._tick);
- scanning=false;render();pump();
+ if(scanning){scanning=false;render();pump();}
 }
 function viewScan(){
  const pend=queue.filter(q=>q.state==="waiting"||q.state==="reading").length;
