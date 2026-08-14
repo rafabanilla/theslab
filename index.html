@@ -311,7 +311,7 @@ function gradeCall(c){
 const CFG="theslab.cfg", CACHE="theslab.cache";
 let sb=null, user=null, syncState="", cfg=null;
 
-function loadCfg(){try{cfg=JSON.parse(localStorage.getItem(CFG)||"null");}catch(_){cfg=null;}return cfg;}
+function loadCfg(){cfg={url:"PASTE_PROJECT_URL_HERE",key:"PASTE_ANON_KEY_HERE"};return cfg;}
 function saveCfg(url,key){cfg={url:url.trim().replace(/\/+$/,""),key:key.trim()};
  localStorage.setItem(CFG,JSON.stringify(cfg));}
 function initClient(){
