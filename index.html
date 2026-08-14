@@ -244,7 +244,7 @@ textarea.fld-i{resize:vertical}
 "use strict";
 /* ============ constants ============ */
 const KEY="theslab.v1";
-const VERSION="2026.08.14-json-1";
+const VERSION="2026.08.14-dedupe-1";
 const CATS=["NBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90};
@@ -438,6 +438,46 @@ async function pushMany(list){
   setSync("saved");setTimeout(()=>setSync(""),1200);
  }catch(e){list.forEach(c=>{pending[c.id]=true;});save();
   setSync("unsaved: "+Object.keys(pending).length);}
+}
+function dupKey(c){
+ return [c.year,c.set,c.subject,c.num,c.variant,c.graded?c.grader+c.grade:"raw"]
+  .map(x=>String(x||"").trim().toLowerCase()).join("|");
+}
+function findDupes(){
+ const groups={};
+ S.cards.forEach(c=>{
+  if(!c.subject&&!c.set)return;
+  const k=dupKey(c);(groups[k]=groups[k]||[]).push(c);
+ });
+ return Object.values(groups).filter(g=>g.length>1);
+}
+function score(c){
+ // prefer the record that actually has data on it
+ let s=0;
+ ["vRaw","v9","v10","cost","photoF","photoB","cert","notes","acqDate"].forEach(k=>{if(c[k])s++;});
+ if(c.pricedOn)s+=2;
+ return s;
+}
+async function mergeDupes(){
+ const groups=findDupes();
+ if(!groups.length)return 0;
+ let removed=0;
+ for(const g of groups){
+  const sorted=g.slice().sort((a,b)=>score(b)-score(a));
+  const keep=sorted[0];
+  for(const c of sorted.slice(1)){
+   // carry over anything the keeper is missing
+   ["vRaw","v9","v10","cost","photoF","photoB","cert","notes","acqDate","pricedOn","loc","source"]
+    .forEach(k=>{if(!keep[k]&&c[k])keep[k]=c[k];});
+   S.cards=S.cards.filter(x=>x.id!==c.id);
+   await dropCard(c.id);
+   delete pending[c.id];
+   removed++;
+  }
+  await pushCard(keep);
+ }
+ save();
+ return removed;
 }
 async function retryPending(){
  const ids=Object.keys(pending);
@@ -897,6 +937,11 @@ function viewSetup(){
   <p class="note">These are on this device but not yet in the database. They won't appear on your other devices until they save.</p>
   <button class="btn wide" data-act="retry">Retry saving</button></div>`:""}
 
+ ${(()=>{const g=findDupes();return g.length?`<div class="section">
+  <div class="sec-hd"><h2>Duplicates</h2><span>${g.length}</span></div>
+  <p class="note">${g.length} card${g.length===1?"":"s"} appear more than once. Merging keeps the most complete record and folds in anything the others have.</p>
+  <button class="btn wide" data-act="dedupe">Merge duplicates</button></div>`:"";})()}
+
  <div class="section"><div class="sec-hd"><h2>Diagnostics</h2></div>
   <p class="note">Checks each link in the chain separately, without spending any API credit.</p>
   <button class="btn wide" data-act="diag">Run connection test</button>
@@ -1119,6 +1164,11 @@ document.addEventListener("click",async e=>{
   case"signout":await sb.auth.signOut();user=null;authToken=null;S.cards=[];
    localStorage.removeItem(CACHE);render();break;
   case"pull":await pullAll();render();toast("Refreshed");break;
+  case"dedupe":{
+   const n0=findDupes().length;
+   if(!n0){toast("No duplicates found");break;}
+   const removed=await mergeDupes();render();
+   toast("Merged "+n0+" group"+(n0===1?"":"s")+", removed "+removed);break;}
   case"retry":{const k=Object.keys(pending).length;
    const ok=await retryPending();render();
    toast(ok?("Saved "+ok+" of "+k):"Still couldn't save — check Diagnostics");break;}
@@ -1130,6 +1180,9 @@ document.addEventListener("click",async e=>{
    out.push("token held  : "+(authToken?"yes":"no — using anon key"));
    out.push("project     : "+(cfg?cfg.url:"none"));
    out.push("cards local : "+S.cards.length);
+   try{const srv=await rest("/rest/v1/cards?select=id",{method:"GET",headers:restHeaders()},15000,"count");
+    out.push("cards server: "+((srv&&srv.length)||0));
+   }catch(e){out.push("cards server: FAILED - "+(e.message||e));}
    out.push("unsaved     : "+Object.keys(pending).length);
    for(const fn of ["scan","reprice"]){
     const t0=Date.now();
