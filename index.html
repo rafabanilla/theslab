@@ -244,7 +244,7 @@ textarea.fld-i{resize:vertical}
 "use strict";
 /* ============ constants ============ */
 const KEY="theslab.v1";
-const VERSION="2026.08.14-merge-1";
+const VERSION="2026.08.14-rest-1";
 const CATS=["NBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90};
@@ -373,20 +373,43 @@ function fromRow(r){
 function setSync(s){syncState=s;const el=document.getElementById("saveflag");if(el){
  el.textContent=s;el.className="save"+(s==="offline"||s.indexOf("fail")>-1?" save-error":"");}}
 
+function restHeaders(extra){
+ return Object.assign({
+  "apikey":cfg.key,
+  "Authorization":"Bearer "+(authToken||cfg.key),
+  "Content-Type":"application/json",
+ },extra||{});
+}
+async function rest(path,opts,ms,label){
+ const to=withTimeout(ms||20000);
+ let r;
+ try{r=await fetch(cfg.url.replace(/\/+$/,"")+path,Object.assign({signal:to.signal},opts));}
+ catch(err){to.done();
+  throw new Error(err&&err.name==="AbortError"?((label||"request")+" timed out"):("couldn't reach the database"));}
+ to.done();
+ if(!r.ok){
+  let msg="";try{const j=await r.json();msg=j.message||j.error||JSON.stringify(j);}catch(_){msg="HTTP "+r.status;}
+  throw new Error((label||"request")+" failed: "+msg);
+ }
+ if(r.status===204)return null;
+ try{return await r.json();}catch(_){return null;}
+}
+
 async function pullAll(){
  if(!sb||!user)return;
  setSync("syncing");
  try{
-  const {data,error}=await raced(sb.from("cards").select("*").order("updated_at",{ascending:false}),25000,"sync");
-  if(error)throw error;
+  const data=await rest("/rest/v1/cards?select=*&order=updated_at.desc",
+   {method:"GET",headers:restHeaders()},25000,"sync");
   const rows=(data||[]).map(fromRow);
   const seen={};rows.forEach(c=>{seen[c.id]=true;});
   // anything still unsaved locally survives the sync
   const keep=S.cards.filter(c=>pending[c.id]&&!seen[c.id]);
   S.cards=keep.concat(rows);
   if(keep.length)retryPending();
-  const s=await sb.from("settings").select("data").eq("user_id",user.id).maybeSingle();
-  if(s.data&&s.data.data)S.settings={...DEF_SET,...s.data.data};
+  try{const s=await rest("/rest/v1/settings?select=data&user_id=eq."+user.id,
+    {method:"GET",headers:restHeaders()},15000,"settings");
+   if(s&&s[0]&&s[0].data)S.settings={...DEF_SET,...s[0].data};}catch(_){}
   save();setSync("synced");setTimeout(()=>setSync(""),1500);
  }catch(e){setSync("offline");}
 }
@@ -394,8 +417,9 @@ async function pushCard(c){
  save();
  if(!sb||!user){setSync("offline");return;}
  setSync("saving");
- try{const {error}=await raced(sb.from("cards").upsert(toRow(c),{onConflict:"id"}),20000,"save");
-  if(error)throw error;
+ try{await rest("/rest/v1/cards",{method:"POST",
+   headers:restHeaders({"Prefer":"resolution=merge-duplicates,return=minimal"}),
+   body:JSON.stringify([toRow(c)])},20000,"save");
   delete pending[c.id];save();
   setSync("saved");setTimeout(()=>setSync(""),1200);
  }catch(e){pending[c.id]=true;save();setSync("unsaved: "+Object.keys(pending).length);}
@@ -406,8 +430,9 @@ async function pushMany(list){
  setSync("saving "+list.length);
  try{
   for(let i=0;i<list.length;i+=200){
-   const {error}=await raced(sb.from("cards").upsert(list.slice(i,i+200).map(toRow),{onConflict:"id"}),30000,"save");
-   if(error)throw error;
+   await rest("/rest/v1/cards",{method:"POST",
+    headers:restHeaders({"Prefer":"resolution=merge-duplicates,return=minimal"}),
+    body:JSON.stringify(list.slice(i,i+200).map(toRow))},30000,"save");
   }
   list.forEach(c=>delete pending[c.id]);save();
   setSync("saved");setTimeout(()=>setSync(""),1200);
@@ -421,8 +446,9 @@ async function retryPending(){
  for(const id of ids){
   const c=S.cards.find(x=>x.id===id);
   if(!c){delete pending[id];continue;}
-  try{const {error}=await raced(sb.from("cards").upsert(toRow(c),{onConflict:"id"}),20000,"save");
-   if(error)throw error;
+  try{await rest("/rest/v1/cards",{method:"POST",
+    headers:restHeaders({"Prefer":"resolution=merge-duplicates,return=minimal"}),
+    body:JSON.stringify([toRow(c)])},20000,"save");
    delete pending[id];ok++;
   }catch(_){}
  }
@@ -433,30 +459,42 @@ async function retryPending(){
 async function dropCard(id){
  save();
  if(!sb||!user)return;
- try{await sb.from("cards").delete().eq("id",id);}catch(_){setSync("delete failed");}
+ try{await rest("/rest/v1/cards?id=eq."+encodeURIComponent(id),
+   {method:"DELETE",headers:restHeaders({"Prefer":"return=minimal"})},15000,"delete");
+ }catch(_){setSync("delete failed");}
 }
 async function pushSettings(){
  save();
  if(!sb||!user)return;
- try{await sb.from("settings").upsert({user_id:user.id,data:S.settings,
-  updated_at:new Date().toISOString()},{onConflict:"user_id"});}catch(_){}
+ try{await rest("/rest/v1/settings",{method:"POST",
+   headers:restHeaders({"Prefer":"resolution=merge-duplicates,return=minimal"}),
+   body:JSON.stringify([{user_id:user.id,data:S.settings,updated_at:new Date().toISOString()}])},
+   15000,"settings");}catch(_){}
 }
 
 /* ---- photos live in Supabase Storage, so they get real public URLs ---- */
 async function uploadPhoto(cardId,which,dataUrl){
- if(!sb||!user)throw new Error("Not signed in");
+ if(!user)throw new Error("Not signed in");
  const blob=await (await fetch(dataUrl)).blob();
  const path=`${user.id}/${cardId}-${which==="F"?"front":"back"}.jpg`;
- const {error}=await raced(sb.storage.from("cards").upload(path,blob,
-  {upsert:true,contentType:"image/jpeg",cacheControl:"3600"}),40000,"photo upload");
- if(error)throw error;
- const {data}=sb.storage.from("cards").getPublicUrl(path);
- return data.publicUrl+"?v="+Date.now();
+ const base=cfg.url.replace(/\/+$/,"");
+ const to=withTimeout(40000);
+ let r;
+ try{r=await fetch(base+"/storage/v1/object/cards/"+path,{method:"POST",
+   headers:{"apikey":cfg.key,"Authorization":"Bearer "+(authToken||cfg.key),
+    "Content-Type":"image/jpeg","x-upsert":"true"},
+   body:blob,signal:to.signal});}
+ catch(err){to.done();throw new Error(err&&err.name==="AbortError"?"photo upload timed out":"photo upload failed");}
+ to.done();
+ if(!r.ok){let m="";try{m=(await r.json()).message||"";}catch(_){}
+  throw new Error("photo upload failed"+(m?": "+m:""));}
+ return base+"/storage/v1/object/public/cards/"+path+"?v="+Date.now();
 }
 async function removePhoto(cardId,which){
- if(!sb||!user)return;
+ if(!user)return;
  const path=`${user.id}/${cardId}-${which==="F"?"front":"back"}.jpg`;
- try{await sb.storage.from("cards").remove([path]);}catch(_){}
+ try{await fetch(cfg.url.replace(/\/+$/,"")+"/storage/v1/object/cards/"+path,
+  {method:"DELETE",headers:{"apikey":cfg.key,"Authorization":"Bearer "+(authToken||cfg.key)}});}catch(_){}
 }
 
 function compress(file,max=1400,q=.82){return new Promise((res,rej)=>{
@@ -1108,6 +1146,21 @@ document.addEventListener("click",async e=>{
      out.push(fn+" error     : "+(e.message||e));
     }
    }
+   out.push("");
+   try{const t0=Date.now();
+    await rest("/rest/v1/cards?select=id&limit=1",{method:"GET",headers:restHeaders()},15000,"read");
+    out.push("db read     : ok ("+(Date.now()-t0)+"ms)");
+   }catch(e){out.push("db read     : FAILED - "+(e.message||e));}
+   try{const t0=Date.now();
+    await rest("/rest/v1/cards",{method:"POST",
+     headers:restHeaders({"Prefer":"resolution=merge-duplicates,return=minimal"}),
+     body:JSON.stringify([{id:"diag-probe",user_id:user?user.id:null,sku:"DIAG",
+      subject:"connection test",updated_at:new Date().toISOString()}])},15000,"write");
+    out.push("db write    : ok ("+(Date.now()-t0)+"ms)");
+    await rest("/rest/v1/cards?id=eq.diag-probe",{method:"DELETE",
+     headers:restHeaders({"Prefer":"return=minimal"})},15000,"cleanup");
+    out.push("db cleanup  : ok");
+   }catch(e){out.push("db write    : FAILED - "+(e.message||e));}
    window._diag=out.join("\n");render();break;}
   case"hardrefresh":{
    toast("Clearing…");
