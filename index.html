@@ -176,6 +176,18 @@ textarea.fld-i{resize:vertical}
   background:var(--ink);color:#fff;padding:10px 16px;border-radius:3px;font-size:13px;z-index:60;
   box-shadow:0 4px 20px rgba(0,0,0,.3);max-width:90vw;text-align:center}
 
+/* gate screens */
+.gate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px}
+.gwrap{width:100%;max-width:440px;background:var(--label);border:1px solid var(--rule);
+  border-radius:3px;padding:26px 22px;box-shadow:var(--shadow)}
+.gt{font-family:var(--disp);font-weight:500;font-size:26px;margin:0 0 8px;letter-spacing:.01em}
+.gp{font-size:13px;line-height:1.6;color:var(--mute);margin:0 0 16px}
+.gp.small{font-size:11.5px;margin-top:14px;margin-bottom:0}
+.glist{font-size:13px;line-height:1.7;color:var(--mute);padding-left:20px;margin:0 0 18px}
+.glist b{color:var(--ink)}
+.gmsg{margin-top:12px;background:#FDF0D9;border-left:3px solid var(--gold);
+  padding:10px 12px;font-size:12.5px;line-height:1.5;color:#5C4409}
+
 /* price refresh */
 .rbanner{position:sticky;top:140px;z-index:18;display:flex;align-items:center;gap:10px;
   background:var(--gold);color:#fff;padding:8px 14px;font-size:12px;font-family:var(--mono)}
@@ -223,6 +235,7 @@ textarea.fld-i{resize:vertical}
 <input type="file" id="scancam" accept="image/*" capture="environment" hidden>
 <input type="file" id="scanlib" accept="image/*" multiple hidden>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
 "use strict";
 /* ============ constants ============ */
@@ -274,9 +287,7 @@ const n=v=>{const x=parseFloat(String(v).replace(/[^0-9.\-]/g,""));return isNaN(
 const money=v=>S.settings.currency+n(v).toLocaleString(undefined,{maximumFractionDigits:0});
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 
-function photoURL(c,w){const man=w==="F"?c.photoF:c.photoB;if(man)return man;
- const s=S.settings;if(!s.photoBase||!c.sku)return"";
- return s.photoBase.replace(/\/+$/,"")+"/"+c.sku+"-"+(w==="F"?"front":"back")+"."+s.photoExt;}
+function photoURL(c,w){return (w==="F"?c.photoF:c.photoB)||"";}
 
 function title(c){return[c.year,c.set,c.subject,c.num?"#"+c.num:"",c.variant,c.serial?"/"+c.serial:"",
  c.graded?c.grader+" "+c.grade:"RAW"].filter(Boolean).join(" ");}
@@ -296,24 +307,120 @@ function gradeCall(c){
  return{verdict,net};
 }
 
-/* ============ storage ============ */
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){toast("Storage full — export a CSV backup");}}
-function load(){try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r);
- S.cards=d.cards||[];S.settings={...DEF_SET,...(d.settings||{})};return true;}}catch(e){}
- S.cards=seed();save();return false;}
+/* ============ cloud storage (Supabase) ============ */
+const CFG="theslab.cfg", CACHE="theslab.cache";
+let sb=null, user=null, syncState="", cfg=null;
 
-let _db;
-function db(){if(!_db)_db=new Promise((res,rej)=>{const r=indexedDB.open("theslab",1);
- r.onupgradeneeded=()=>r.result.createObjectStore("photos");
- r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});return _db;}
-async function putPhoto(k,v){const d=await db();return new Promise((res,rej)=>{
- const t=d.transaction("photos","readwrite");t.objectStore("photos").put(v,k);
- t.oncomplete=()=>res();t.onerror=()=>rej(t.error);});}
-async function getPhoto(k){try{const d=await db();return new Promise(res=>{
- const t=d.transaction("photos","readonly"),q=t.objectStore("photos").get(k);
- q.onsuccess=()=>res(q.result||null);q.onerror=()=>res(null);});}catch(e){return null;}}
-async function delPhoto(k){try{const d=await db();const t=d.transaction("photos","readwrite");
- t.objectStore("photos").delete(k);}catch(e){}}
+function loadCfg(){try{cfg=JSON.parse(localStorage.getItem(CFG)||"null");}catch(_){cfg=null;}return cfg;}
+function saveCfg(url,key){cfg={url:url.trim().replace(/\/+$/,""),key:key.trim()};
+ localStorage.setItem(CFG,JSON.stringify(cfg));}
+function initClient(){
+ if(!cfg||!window.supabase)return false;
+ try{sb=window.supabase.createClient(cfg.url,cfg.key,{auth:{persistSession:true,autoRefreshToken:true}});
+  return true;}catch(_){return false;}
+}
+
+/* local cache: instant load, read-only when offline */
+function save(){try{localStorage.setItem(CACHE,JSON.stringify(S));}catch(_){}}
+function loadCache(){try{const r=localStorage.getItem(CACHE);if(r){const d=JSON.parse(r);
+ S.cards=d.cards||[];S.settings={...DEF_SET,...(d.settings||{})};return true;}}catch(_){}
+ S.cards=[];return false;}
+
+/* column mapping: JS camelCase <-> Postgres snake_case */
+const MAP={sku:"sku",cat:"cat",year:"year",set:"set_name",subject:"subject",num:"num",
+ variant:"variant",serial:"serial",qty:"qty",graded:"graded",grader:"grader",grade:"grade",
+ cert:"cert",conf:"conf",cost:"cost",acqDate:"acq_date",source:"source",vRaw:"v_raw",
+ v9:"v9",v10:"v10",pricedOn:"priced_on",lastMove:"last_move",status:"status",
+ listPrice:"list_price",salePrice:"sale_price",saleDate:"sale_date",salePlatform:"sale_platform",
+ loc:"loc",notes:"notes",review:"review",photoF:"photo_f",photoB:"photo_b"};
+const NUMCOL=["qty","cost","v_raw","v9","v10","last_move","list_price","sale_price"];
+
+function toRow(c){
+ const r={id:c.id,user_id:user.id,updated_at:new Date().toISOString()};
+ for(const k in MAP){
+  let v=c[k];
+  const col=MAP[k];
+  if(NUMCOL.indexOf(col)>-1)v=(v===""||v==null)?null:n(v);
+  else if(col==="graded"||col==="review")v=!!v;
+  else v=(v===""||v==null)?null:String(v);
+  r[col]=v;
+ }
+ return r;
+}
+function fromRow(r){
+ const c=blank("");c.id=r.id;
+ for(const k in MAP){
+  const v=r[MAP[k]];
+  c[k]=(v==null)?(k==="graded"||k==="review"?false:k==="qty"?1:""):v;
+ }
+ c.graded=!!r.graded;c.review=!!r.review;
+ return c;
+}
+
+function setSync(s){syncState=s;const el=document.getElementById("saveflag");if(el){
+ el.textContent=s;el.className="save"+(s==="offline"||s.indexOf("fail")>-1?" save-error":"");}}
+
+async function pullAll(){
+ if(!sb||!user)return;
+ setSync("syncing");
+ try{
+  const {data,error}=await sb.from("cards").select("*").order("updated_at",{ascending:false});
+  if(error)throw error;
+  S.cards=(data||[]).map(fromRow);
+  const s=await sb.from("settings").select("data").eq("user_id",user.id).maybeSingle();
+  if(s.data&&s.data.data)S.settings={...DEF_SET,...s.data.data};
+  save();setSync("synced");setTimeout(()=>setSync(""),1500);
+ }catch(e){setSync("offline");}
+}
+async function pushCard(c){
+ save();
+ if(!sb||!user){setSync("offline");return;}
+ setSync("saving");
+ try{const {error}=await sb.from("cards").upsert(toRow(c),{onConflict:"id"});
+  if(error)throw error;
+  setSync("saved");setTimeout(()=>setSync(""),1200);
+ }catch(e){setSync("save failed");}
+}
+async function pushMany(list){
+ save();
+ if(!sb||!user){setSync("offline");return;}
+ setSync("saving "+list.length);
+ try{
+  for(let i=0;i<list.length;i+=200){
+   const {error}=await sb.from("cards").upsert(list.slice(i,i+200).map(toRow),{onConflict:"id"});
+   if(error)throw error;
+  }
+  setSync("saved");setTimeout(()=>setSync(""),1200);
+ }catch(e){setSync("save failed");}
+}
+async function dropCard(id){
+ save();
+ if(!sb||!user)return;
+ try{await sb.from("cards").delete().eq("id",id);}catch(_){setSync("delete failed");}
+}
+async function pushSettings(){
+ save();
+ if(!sb||!user)return;
+ try{await sb.from("settings").upsert({user_id:user.id,data:S.settings,
+  updated_at:new Date().toISOString()},{onConflict:"user_id"});}catch(_){}
+}
+
+/* ---- photos live in Supabase Storage, so they get real public URLs ---- */
+async function uploadPhoto(cardId,which,dataUrl){
+ if(!sb||!user)throw new Error("Not signed in");
+ const blob=await (await fetch(dataUrl)).blob();
+ const path=`${user.id}/${cardId}-${which==="F"?"front":"back"}.jpg`;
+ const {error}=await sb.storage.from("cards").upload(path,blob,
+  {upsert:true,contentType:"image/jpeg",cacheControl:"3600"});
+ if(error)throw error;
+ const {data}=sb.storage.from("cards").getPublicUrl(path);
+ return data.publicUrl+"?v="+Date.now();
+}
+async function removePhoto(cardId,which){
+ if(!sb||!user)return;
+ const path=`${user.id}/${cardId}-${which==="F"?"front":"back"}.jpg`;
+ try{await sb.storage.from("cards").remove([path]);}catch(_){}
+}
 
 function compress(file,max=1400,q=.82){return new Promise((res,rej)=>{
  const fr=new FileReader();
@@ -376,8 +483,9 @@ async function pump(){
    vRaw:n(r.vRaw)||"",v9:n(r.v9)||"",v10:n(r.v10)||"",
    pricedOn:new Date().toISOString().slice(0,10),
    notes:r.note||"",review:r.confidence!=="high"});
-  S.cards.unshift(c);save();
-  await putPhoto(c.id+"-F",shot);
+  S.cards.unshift(c);
+  try{c.photoF=await uploadPhoto(c.id,"F",shot);}catch(_){}
+  await pushCard(c);
   it.state="done";it.cardId=c.id;it.conf=r.confidence;
   it.label=[r.year,r.set,r.subject].filter(Boolean).join(" ")||"Unidentified";
  }catch(e){it.state="failed";it.err=e.message||String(e);}
@@ -465,7 +573,7 @@ async function rpump(){
   c.lastMove=before?Math.round(n(c.vRaw)-before):0;
   if(r.note)c.notes=r.note;
   if(r.confidence&&r.confidence!=="high")c.review=true;
-  save();rDone++;
+  await pushCard(c);rDone++;
  }catch(e){rFail++;toast(e.message||"Refresh failed");}
  rq.shift();rBusy=false;render();
  setTimeout(rpump,400);
@@ -477,8 +585,49 @@ function repriceBanner(){
   <button class="rstop" data-act="stopreprice">stop</button></div>`;
 }
 
+
+/* ============ setup + sign in ============ */
+let authBusy=false, authMsg="";
+
+function viewConfig(){
+ return `<div class="gate"><div class="gwrap">
+  <div class="wm" style="color:var(--ink);margin-bottom:6px"><span class="wm1">THE</span><span class="wm2">SLAB</span></div>
+  <h1 class="gt">Connect your database</h1>
+  <p class="gp">One-time setup. Your collection lives in your own Supabase project, so every device sees the same inventory.</p>
+  <ol class="glist">
+   <li>Create a free project at <b>supabase.com</b></li>
+   <li>Open <b>SQL Editor</b>, paste in <b>schema.sql</b>, hit Run</li>
+   <li>Go to <b>Project Settings → API</b> and copy the two values below</li>
+  </ol>
+  ${fld("Project URL","cfgUrl",cfg?cfg.url:"","https://abcdefgh.supabase.co","g")}
+  ${fld("Anon public key","cfgKey",cfg?cfg.key:"","eyJhbGciOi...","g")}
+  <button class="btn wide" data-act="savecfg">Connect</button>
+  ${authMsg?`<div class="gmsg">${esc(authMsg)}</div>`:""}
+  <p class="gp small">The anon key is designed to be public — row-level security in the schema is what keeps your data yours. Never paste the <i>service role</i> key here.</p>
+ </div></div>`;
+}
+
+function viewSignIn(){
+ const mk=window._mode==="new";
+ return `<div class="gate"><div class="gwrap">
+  <div class="wm" style="color:var(--ink);margin-bottom:6px"><span class="wm1">THE</span><span class="wm2">SLAB</span></div>
+  <h1 class="gt">${mk?"Create your account":"Sign in"}</h1>
+  <p class="gp">${mk?"One account, used on every device you catalogue from.":"Same account on your phone and your laptop means the same collection."}</p>
+  ${fld("Email","authEmail",window._email||"","you@example.com","g","email")}
+  ${fld("Password","authPass","",mk?"at least 8 characters":"","g","password")}
+  <button class="btn wide" data-act="${mk?"signup":"signin"}" ${authBusy?"disabled":""}>
+   ${authBusy?"Working…":(mk?"Create account":"Sign in")}</button>
+  ${authMsg?`<div class="gmsg">${esc(authMsg)}</div>`:""}
+  <button class="btn ghost wide" data-act="togglemode">${mk?"I already have an account":"Create an account instead"}</button>
+  <p class="gp small">Trouble signing in? <a href="#" data-act="magic">Email me a link instead</a> — note that Supabase's built-in mailer only sends two messages an hour.</p>
+  <button class="btn ghost wide" data-act="editcfg">Change database settings</button>
+ </div></div>`;
+}
+
 /* ============ render ============ */
 function render(){
+ if(!cfg||!sb){document.getElementById("app").innerHTML=viewConfig();return;}
+ if(!user){document.getElementById("app").innerHTML=viewSignIn();return;}
  const st=stats();
  let h=`<header class="hdr"><div class="hdr-top">
   <div class="wordmark"><span class="wm-1">THE</span><span class="wm-2">SLAB</span></div>
@@ -497,7 +646,7 @@ function render(){
  positionTabs();
  if(editing)hydratePhotos();
  else document.querySelectorAll("[data-lazy]").forEach(async el=>{
-   const d=await getPhoto(el.dataset.lazy);if(d)el.src=d;});
+   el.remove();});
 }
 function tick(l,v,hot){return`<div class="tick${hot?" hot":""}"><div class="tick-v">${v}</div><div class="tick-l">${l}</div></div>`;}
 function positionTabs(){const hd=document.querySelector(".hdr");const tb=document.querySelector(".tabs");
@@ -527,7 +676,9 @@ function viewCollection(){
    <button class="chip alt" data-act="sort">Sort: ${F.sort}</button></div>
   <div class="count">${list.length} card${list.length===1?"":"s"}
    ${list.length&&list.some(c=>c.subject||c.set)?`<button class="mini" data-act="repriceview">refresh these prices</button>`:""}</div>`;
- if(!list.length)h+=`<div class="empty"><p>Nothing here yet.</p><button class="btn" data-act="new">Add your first card</button></div>`;
+ if(!list.length)h+=`<div class="empty">
+  <p>${S.cards.length?"Nothing matches those filters.":"No cards yet. Scan one, or add it by hand."}</p>
+  <button class="btn" data-act="new">Add a card by hand</button></div>`;
  else{h+=list.slice(0,F.limit).map(slabRow).join("");
   if(list.length>F.limit)h+=`<button class="btn ghost wide" data-act="more">Show 50 more (${list.length-F.limit} left)</button>`;}
  return h+"</div>";
@@ -610,10 +761,16 @@ function viewMoney(st){
 function viewSetup(){
  return`<div class="pane">
  <div class="section"><div class="sec-hd"><h2>Photos</h2></div>
-  <p class="note">Two ways to do this. <b>Snap them in the app</b> — open any card and tap Front or Back. Photos are compressed and stored on this device, no account needed.<br><br>
-  <b>Or host them online</b>, which you'll want for selling. Name each image after its SKU — <code>MJ-001-front.jpg</code> — put them all in one hosted folder, and paste that folder's URL below. Links build themselves.</p>
-  ${fld("Photo folder URL","photoBase",S.settings.photoBase,"https://res.cloudinary.com/you/cards","set")}
-  ${fld("File extension","photoExt",S.settings.photoExt,"jpg","set")}</div>
+  <p class="note">Open any card and tap Front or Back to shoot it. Photos upload to your Supabase project and get real public URLs, so the listing export carries links eBay and Whatnot can load directly. Nothing to configure.</p></div>
+
+ <div class="section"><div class="sec-hd"><h2>Account</h2></div>
+  <p class="note">Signed in as <b>${esc(user?user.email:"")}</b>. Cards and photos sync to your Supabase project, so any device you sign in from shows the same collection.</p>
+  <button class="btn ghost wide" data-act="pull">Refresh from the database</button>
+  <button class="btn ghost wide" data-act="signout">Sign out</button></div>
+
+ <div class="section"><div class="sec-hd"><h2>Starter data</h2></div>
+  <p class="note">The 18 graded slabs from your original list, with researched values. Adds any that aren't already here — it won't duplicate.</p>
+  <button class="btn ghost wide" data-act="seed">Load the 18 graded slabs</button></div>
 
  <div class="section"><div class="sec-hd"><h2>Prices</h2></div>
   ${(()=>{const st=S.cards.filter(isStale);const un=S.cards.filter(c=>c.status!=="sold"&&!n(c.vRaw)&&(c.subject||c.set));
@@ -688,8 +845,8 @@ function viewSheet(){
  if(c.status==="sold")h+=`<div class="row2">${fld("Sold for","salePrice",c.salePrice,"","f","number")}${fld("Sold on","saleDate",c.saleDate,"","f","date")}</div>
   ${fld("Sold where","salePlatform",c.salePlatform,"eBay")}`;
  h+=`<div class="divider">Links and notes</div>
-  ${fld("Front photo URL (blank = auto or device photo)","photoF",c.photoF,S.settings.photoBase?"auto":"paste a link")}
-  ${fld("Back photo URL","photoB",c.photoB,S.settings.photoBase?"auto":"paste a link")}
+  ${fld("Front photo URL","photoF",c.photoF,"fills in when you shoot it")}
+  ${fld("Back photo URL","photoB",c.photoB,"fills in when you shoot it")}
   ${fld("Notes","notes",c.notes,"","f","area")}
   <div class="lt"><span>Listing title</span><code>${esc(title(c))}</code></div>
   <button class="btn wide" data-act="save-next">Save and add another</button>`;
@@ -720,7 +877,7 @@ async function hydratePhotos(){
  for(const w of["F","B"]){
   const el=document.getElementById("img"+w);if(!el)continue;
   const url=photoURL(editing,w);
-  const d=url||await getPhoto(editing.id+"-"+w);
+  const d=url;
   if(d){el.src=d;el.style.display="block";
    const x=document.querySelector(`[data-clear="${w}"]`);if(x&&!url)x.style.display="block";
    const lab=el.parentElement.querySelector(".shot-l");if(lab)lab.style.display="none";}
@@ -755,7 +912,7 @@ function importCSV(text){
   head.forEach((k,i)=>{if(k in o)o[k]=k==="graded"?/true|yes|1/i.test(vals[i]||""):(vals[i]||"");});
   o.id="i"+Date.now()+Math.random().toString(36).slice(2,6);return o;})
   .filter(c=>c.subject||c.sku);
- S.cards=[...added,...S.cards];save();render();toast(`Imported ${added.length} cards`);
+ S.cards=[...added,...S.cards];pushMany(added);render();toast(`Imported ${added.length} cards`);
 }
 
 function toast(msg){
@@ -774,7 +931,9 @@ document.addEventListener("click",async e=>{
  const t=e.target.closest("[data-tab],[data-act],[data-open],[data-cat],[data-only],[data-graded],[data-pic],[data-clear]");
  if(!t)return;
  const d=t.dataset;
- if(d.clear!==undefined&&d.clear){e.stopPropagation();await delPhoto(editing.id+"-"+d.clear);render();return;}
+ if(d.clear!==undefined&&d.clear){e.stopPropagation();
+  await removePhoto(editing.id,d.clear);
+  editing[d.clear==="F"?"photoF":"photoB"]="";commit();render();return;}
  if(d.pic){picTarget=d.pic;document.getElementById("picin").click();return;}
  if(d.tab){tab=d.tab;render();window.scrollTo(0,0);return;}
  if(d.open){editing=JSON.parse(JSON.stringify(S.cards.find(c=>c.id===d.open)));confirmDel=false;render();return;}
@@ -798,8 +957,56 @@ document.addEventListener("click",async e=>{
     source:prev.source,loc:prev.loc,acqDate:prev.acqDate};confirmDel=false;render();toast("Saved");break;}
   case"askdel":confirmDel=true;render();break;
   case"nodel":confirmDel=false;render();break;
-  case"del":await delPhoto(editing.id+"-F");await delPhoto(editing.id+"-B");
-   S.cards=S.cards.filter(c=>c.id!==editing.id);save();editing=null;render();toast("Deleted");break;
+  case"del":{const gone=editing.id;
+   await removePhoto(gone,"F");await removePhoto(gone,"B");
+   S.cards=S.cards.filter(c=>c.id!==gone);await dropCard(gone);
+   editing=null;render();toast("Deleted");break;}
+  case"savecfg":{
+   const u=(document.querySelector('[data-g="cfgUrl"]')||{}).value||"";
+   const k=(document.querySelector('[data-g="cfgKey"]')||{}).value||"";
+   if(!/^https:\/\/.+\.supabase\.co/.test(u.trim())){authMsg="That doesn't look like a Supabase project URL.";render();break;}
+   if(k.trim().length<40){authMsg="That key looks too short — copy the anon public key.";render();break;}
+   saveCfg(u,k);authMsg="";
+   if(initClient()){await checkSession();render();}
+   else{authMsg="Couldn't connect with those values.";render();}
+   break;}
+  case"editcfg":cfg=null;sb=null;authMsg="";render();break;
+  case"togglemode":window._mode=(window._mode==="new"?"":"new");authMsg="";render();break;
+  case"signin":case"signup":{
+   const em=((document.querySelector('[data-g="authEmail"]')||{}).value||"").trim();
+   const pw=((document.querySelector('[data-g="authPass"]')||{}).value||"");
+   if(!/.+@.+\..+/.test(em)){authMsg="Enter a valid email address.";render();break;}
+   if(pw.length<8){authMsg="Password needs to be at least 8 characters.";render();break;}
+   window._email=em;authBusy=true;authMsg="";render();
+   try{
+    const fn=d.act==="signup"?"signUp":"signInWithPassword";
+    const {data,error}=await sb.auth[fn]({email:em,password:pw});
+    if(error){
+     authMsg=/invalid login/i.test(error.message)?"Email or password not recognised. If this is your first time, tap Create an account."
+      :/already registered|already exists/i.test(error.message)?"That email already has an account — sign in instead."
+      :/confirm/i.test(error.message)?"Supabase wants to confirm this email. Turn off Authentication → Sign In / Providers → Email → Confirm email, then try again."
+      :error.message;
+    }else if(data&&data.user&&!data.session){
+     authMsg="Account made, but Supabase is asking for email confirmation. Turn off Authentication → Sign In / Providers → Email → Confirm email, then sign in.";
+    }else{authMsg="";window._mode="";}
+   }catch(e){authMsg=e.message||"Sign in failed";}
+   authBusy=false;render();break;}
+  case"magic":{
+   const em=((document.querySelector('[data-g="authEmail"]')||{}).value||"").trim();
+   if(!/.+@.+\..+/.test(em)){authMsg="Enter a valid email address.";render();break;}
+   window._email=em;authBusy=true;authMsg="";render();
+   try{const {error}=await sb.auth.signInWithOtp({email:em,
+     options:{emailRedirectTo:location.origin+location.pathname}});
+    authMsg=error?("Couldn't send it: "+error.message):"Check your email and tap the link. You can close this tab.";
+   }catch(e){authMsg="Couldn't send it: "+(e.message||"unknown");}
+   authBusy=false;render();break;}
+  case"signout":await sb.auth.signOut();user=null;S.cards=[];
+   localStorage.removeItem(CACHE);render();break;
+  case"pull":await pullAll();render();toast("Refreshed");break;
+  case"seed":{const have=S.cards.map(c=>c.sku);
+   const add=seed().filter(c=>have.indexOf(c.sku)===-1);
+   if(!add.length){toast("They're already here");break;}
+   S.cards=add.concat(S.cards);pushMany(add);render();toast(`Added ${add.length} cards`);break;}
   case"repriceone":if(editing){commit();queueReprice([S.cards.find(c=>c.id===editing.id)]);editing=null;render();}break;
   case"repriceview":queueReprice((window._visible||[]).filter(c=>c.subject||c.set));break;
   case"repricestale":queueReprice(S.cards.filter(isStale));break;
@@ -818,7 +1025,7 @@ function commit(){
  editing.review=false;
  const i=S.cards.findIndex(c=>c.id===editing.id);
  if(i===-1)S.cards.unshift(editing);else S.cards[i]=editing;
- save();return editing;
+ pushCard(editing);return editing;
 }
 document.addEventListener("input",e=>{
  const el=e.target;
@@ -833,7 +1040,8 @@ document.addEventListener("input",e=>{
     p=a&&a.selectionStart;render();if(k){const el2=document.querySelector(`[data-f="${k}"]`);
     if(el2){el2.focus();try{el2.setSelectionRange(p,p);}catch(_){}}}},450);}
   return;}
- if(el.dataset.set){S.settings[el.dataset.set]=el.value;save();}
+ if(el.dataset.set){S.settings[el.dataset.set]=el.value;
+  clearTimeout(window._st);window._st=setTimeout(pushSettings,700);}
 });
 document.addEventListener("change",async e=>{
  if((e.target.id==="scancam"||e.target.id==="scanlib")&&e.target.files.length){
@@ -843,10 +1051,11 @@ document.addEventListener("change",async e=>{
    catch(_){toast("Import failed — needs a CSV with a header row");}};
   fr.readAsText(e.target.files[0]);e.target.value="";}
  if(e.target.id==="picin"&&e.target.files[0]&&editing){
-  toast("Processing photo…");
+  toast("Uploading photo…");
   try{const d=await compress(e.target.files[0]);
-   await putPhoto(editing.id+"-"+picTarget,d);render();}
-  catch(_){toast("Couldn't read that image");}
+   const url=await uploadPhoto(editing.id,picTarget,d);
+   editing[picTarget==="F"?"photoF":"photoB"]=url;commit();render();toast("Photo saved");}
+  catch(err){toast(err.message||"Couldn't upload that image");}
   e.target.value="";}
 });
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;});
@@ -863,7 +1072,29 @@ async function measure(){
 }
 
 /* ============ boot ============ */
-load();render();measure().then(()=>{if(tab==="setup")render();});
+async function checkSession(){
+ if(!sb)return;
+ try{const {data}=await sb.auth.getSession();
+  user=data&&data.session?data.session.user:null;
+  if(user){loadCache();render();await pullAll();render();}
+ }catch(_){}
+}
+(async function boot(){
+ loadCfg();
+ if(cfg)initClient();
+ render();
+ if(sb){
+  sb.auth.onAuthStateChange(async (evt,sess)=>{
+   const was=user?user.id:null;
+   user=sess?sess.user:null;
+   if(user&&user.id!==was){loadCache();render();await pullAll();}
+   render();
+  });
+  await checkSession();
+ }
+ measure().then(()=>{if(tab==="setup")render();});
+ window.addEventListener("focus",()=>{if(user&&!rq.length&&!scanning)pullAll().then(render);});
+})();
 if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
 </body>
