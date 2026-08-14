@@ -244,7 +244,7 @@ textarea.fld-i{resize:vertical}
 "use strict";
 /* ============ constants ============ */
 const KEY="theslab.v1";
-const VERSION="2026.08.14-diag-2";
+const VERSION="2026.08.14-merge-1";
 const CATS=["NBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90};
@@ -314,7 +314,7 @@ function gradeCall(c){
 
 /* ============ cloud storage (Supabase) ============ */
 const CFG="theslab.cfg", CACHE="theslab.cache";
-let sb=null, user=null, syncState="", cfg=null, authToken=null;
+let sb=null, user=null, syncState="", cfg=null, authToken=null, pending={};
 
 /* Baked-in project. The anon key is designed to be public — row-level
    security in schema.sql is what protects the data. Never put the
@@ -334,9 +334,9 @@ function initClient(){
 }
 
 /* local cache: instant load, read-only when offline */
-function save(){try{localStorage.setItem(CACHE,JSON.stringify(S));}catch(_){}}
+function save(){try{localStorage.setItem(CACHE,JSON.stringify({...S,pending}));}catch(_){}}
 function loadCache(){try{const r=localStorage.getItem(CACHE);if(r){const d=JSON.parse(r);
- S.cards=d.cards||[];S.settings={...DEF_SET,...(d.settings||{})};return true;}}catch(_){}
+ S.cards=d.cards||[];S.settings={...DEF_SET,...(d.settings||{})};pending=d.pending||{};return true;}}catch(_){}
  S.cards=[];return false;}
 
 /* column mapping: JS camelCase <-> Postgres snake_case */
@@ -379,7 +379,12 @@ async function pullAll(){
  try{
   const {data,error}=await raced(sb.from("cards").select("*").order("updated_at",{ascending:false}),25000,"sync");
   if(error)throw error;
-  S.cards=(data||[]).map(fromRow);
+  const rows=(data||[]).map(fromRow);
+  const seen={};rows.forEach(c=>{seen[c.id]=true;});
+  // anything still unsaved locally survives the sync
+  const keep=S.cards.filter(c=>pending[c.id]&&!seen[c.id]);
+  S.cards=keep.concat(rows);
+  if(keep.length)retryPending();
   const s=await sb.from("settings").select("data").eq("user_id",user.id).maybeSingle();
   if(s.data&&s.data.data)S.settings={...DEF_SET,...s.data.data};
   save();setSync("synced");setTimeout(()=>setSync(""),1500);
@@ -391,8 +396,9 @@ async function pushCard(c){
  setSync("saving");
  try{const {error}=await raced(sb.from("cards").upsert(toRow(c),{onConflict:"id"}),20000,"save");
   if(error)throw error;
+  delete pending[c.id];save();
   setSync("saved");setTimeout(()=>setSync(""),1200);
- }catch(e){setSync("save failed");}
+ }catch(e){pending[c.id]=true;save();setSync("unsaved: "+Object.keys(pending).length);}
 }
 async function pushMany(list){
  save();
@@ -400,11 +406,29 @@ async function pushMany(list){
  setSync("saving "+list.length);
  try{
   for(let i=0;i<list.length;i+=200){
-   const {error}=await sb.from("cards").upsert(list.slice(i,i+200).map(toRow),{onConflict:"id"});
+   const {error}=await raced(sb.from("cards").upsert(list.slice(i,i+200).map(toRow),{onConflict:"id"}),30000,"save");
    if(error)throw error;
   }
+  list.forEach(c=>delete pending[c.id]);save();
   setSync("saved");setTimeout(()=>setSync(""),1200);
- }catch(e){setSync("save failed");}
+ }catch(e){list.forEach(c=>{pending[c.id]=true;});save();
+  setSync("unsaved: "+Object.keys(pending).length);}
+}
+async function retryPending(){
+ const ids=Object.keys(pending);
+ if(!ids.length||!sb||!user)return 0;
+ let ok=0;
+ for(const id of ids){
+  const c=S.cards.find(x=>x.id===id);
+  if(!c){delete pending[id];continue;}
+  try{const {error}=await raced(sb.from("cards").upsert(toRow(c),{onConflict:"id"}),20000,"save");
+   if(error)throw error;
+   delete pending[id];ok++;
+  }catch(_){}
+ }
+ save();
+ setSync(Object.keys(pending).length?("unsaved: "+Object.keys(pending).length):"");
+ return ok;
 }
 async function dropCard(id){
  save();
@@ -830,6 +854,10 @@ function viewSetup(){
   ${storeInfo&&!storeInfo.persisted?`<button class="btn ghost wide" data-act="persist">Protect photos from cleanup</button>`:""}
   <p class="note">Photos live on this device at roughly 250KB each. Browsers can evict storage when space runs low — tap the button above to ask for protection, and keep CSV backups regardless.</p></div>
 
+ ${Object.keys(pending).length?`<div class="section"><div class="sec-hd"><h2>Unsaved cards</h2><span>${Object.keys(pending).length}</span></div>
+  <p class="note">These are on this device but not yet in the database. They won't appear on your other devices until they save.</p>
+  <button class="btn wide" data-act="retry">Retry saving</button></div>`:""}
+
  <div class="section"><div class="sec-hd"><h2>Diagnostics</h2></div>
   <p class="note">Checks each link in the chain separately, without spending any API credit.</p>
   <button class="btn wide" data-act="diag">Run connection test</button>
@@ -1052,6 +1080,9 @@ document.addEventListener("click",async e=>{
   case"signout":await sb.auth.signOut();user=null;authToken=null;S.cards=[];
    localStorage.removeItem(CACHE);render();break;
   case"pull":await pullAll();render();toast("Refreshed");break;
+  case"retry":{const k=Object.keys(pending).length;
+   const ok=await retryPending();render();
+   toast(ok?("Saved "+ok+" of "+k):"Still couldn't save — check Diagnostics");break;}
   case"diag":{
    window._diag="running…";render();
    const out=[];
@@ -1059,6 +1090,8 @@ document.addEventListener("click",async e=>{
    out.push("signed in   : "+(user?user.email:"NO"));
    out.push("token held  : "+(authToken?"yes":"no — using anon key"));
    out.push("project     : "+(cfg?cfg.url:"none"));
+   out.push("cards local : "+S.cards.length);
+   out.push("unsaved     : "+Object.keys(pending).length);
    for(const fn of ["scan","reprice"]){
     const t0=Date.now();
     try{
