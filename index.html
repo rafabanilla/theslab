@@ -242,7 +242,7 @@ textarea.fld-i{resize:vertical}
 "use strict";
 /* ============ constants ============ */
 const KEY="theslab.v1";
-const VERSION="2026.08.14-edge-1";
+const VERSION="2026.08.14-edge-2";
 const CATS=["NBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90};
@@ -312,7 +312,7 @@ function gradeCall(c){
 
 /* ============ cloud storage (Supabase) ============ */
 const CFG="theslab.cfg", CACHE="theslab.cache";
-let sb=null, user=null, syncState="", cfg=null;
+let sb=null, user=null, syncState="", cfg=null, authToken=null;
 
 /* Baked-in project. The anon key is designed to be public — row-level
    security in schema.sql is what protects the data. Never put the
@@ -462,11 +462,9 @@ function withTimeout(ms){
  return {signal:ac.signal,done:()=>clearTimeout(t)};
 }
 async function edgeCall(name,payload,ms){
- if(!sb||!cfg)throw new Error("Not connected");
- let token=cfg.key;
- try{const {data}=await sb.auth.getSession();
-  if(data&&data.session)token=data.session.access_token;}catch(_){}
+ if(!cfg)throw new Error("Not connected");
  const to=withTimeout(ms||140000);
+ const token=authToken||cfg.key;
  let r;
  try{
   r=await fetch(cfg.url.replace(/\/+$/,"")+"/functions/v1/"+name,{
@@ -1016,7 +1014,8 @@ document.addEventListener("click",async e=>{
      authMsg="Account made, but Supabase is asking for email confirmation. Turn off Authentication → Sign In / Providers → Email → Confirm email, then sign in.";
     }else{
      authMsg="";window._mode="";
-     if(data&&data.session){user=data.session.user;loadCache();render();await pullAll();}
+     if(data&&data.session){user=data.session.user;authToken=data.session.access_token;
+      loadCache();render();await pullAll();}
     }
    }catch(e){authMsg=e.message||"Sign in failed";}
    authBusy=false;render();break;}
@@ -1029,7 +1028,7 @@ document.addEventListener("click",async e=>{
     authMsg=error?("Couldn't send it: "+error.message):"Check your email and tap the link. You can close this tab.";
    }catch(e){authMsg="Couldn't send it: "+(e.message||"unknown");}
    authBusy=false;render();break;}
-  case"signout":await sb.auth.signOut();user=null;S.cards=[];
+  case"signout":await sb.auth.signOut();user=null;authToken=null;S.cards=[];
    localStorage.removeItem(CACHE);render();break;
   case"pull":await pullAll();render();toast("Refreshed");break;
   case"hardrefresh":{
@@ -1113,7 +1112,7 @@ async function checkSession(){
  if(!sb)return;
  try{const {data}=await sb.auth.getSession();
   user=data&&data.session?data.session.user:null;
-  if(user){loadCache();render();await pullAll();render();}
+  if(user){authToken=data.session.access_token;loadCache();render();await pullAll();render();}
  }catch(_){}
 }
 (async function boot(){
@@ -1124,6 +1123,7 @@ async function checkSession(){
   sb.auth.onAuthStateChange(async (evt,sess)=>{
    const was=user?user.id:null;
    user=sess?sess.user:null;
+   authToken=sess?sess.access_token:null;
    if(user&&user.id!==was){loadCache();render();await pullAll();}
    render();
   });
