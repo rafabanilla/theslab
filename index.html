@@ -311,7 +311,15 @@ function gradeCall(c){
 const CFG="theslab.cfg", CACHE="theslab.cache";
 let sb=null, user=null, syncState="", cfg=null;
 
-function loadCfg(){cfg={url:"PASTE_PROJECT_URL_HERE",key:"PASTE_ANON_KEY_HERE"};return cfg;}
+/* Baked-in project. The anon key is designed to be public — row-level
+   security in schema.sql is what protects the data. Never put the
+   service_role key here. */
+const BAKED={url:"https://yjqwgfrmethrzuzqmfnc.supabase.co",
+ key:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlqcXdnZnJtZXRocnp1enFtZm5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3MzAwNzksImV4cCI6MjEwMjMwNjA3OX0.Z6slVWn86mVFoZLkcsSmK6fOgjHz-YHOyIrSnV1xxoo"};
+function loadCfg(){
+ if(BAKED.url&&BAKED.key){cfg=BAKED;return cfg;}
+ try{cfg=JSON.parse(localStorage.getItem(CFG)||"null");}catch(_){cfg=null;}
+ return cfg;}
 function saveCfg(url,key){cfg={url:url.trim().replace(/\/+$/,""),key:key.trim()};
  localStorage.setItem(CFG,JSON.stringify(cfg));}
 function initClient(){
@@ -970,7 +978,9 @@ document.addEventListener("click",async e=>{
    if(initClient()){await checkSession();render();}
    else{authMsg="Couldn't connect with those values.";render();}
    break;}
-  case"editcfg":cfg=null;sb=null;authMsg="";render();break;
+  case"editcfg":
+   if(BAKED.url){toast("This app is wired to its own database");break;}
+   cfg=null;sb=null;authMsg="";render();break;
   case"togglemode":window._mode=(window._mode==="new"?"":"new");authMsg="";render();break;
   case"signin":case"signup":{
    const em=((document.querySelector('[data-g="authEmail"]')||{}).value||"").trim();
@@ -988,7 +998,10 @@ document.addEventListener("click",async e=>{
       :error.message;
     }else if(data&&data.user&&!data.session){
      authMsg="Account made, but Supabase is asking for email confirmation. Turn off Authentication → Sign In / Providers → Email → Confirm email, then sign in.";
-    }else{authMsg="";window._mode="";}
+    }else{
+     authMsg="";window._mode="";
+     if(data&&data.session){user=data.session.user;loadCache();render();await pullAll();}
+    }
    }catch(e){authMsg=e.message||"Sign in failed";}
    authBusy=false;render();break;}
   case"magic":{
