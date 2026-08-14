@@ -244,7 +244,7 @@ textarea.fld-i{resize:vertical}
 "use strict";
 /* ============ constants ============ */
 const KEY="theslab.v1";
-const VERSION="2026.08.14-rest-1";
+const VERSION="2026.08.14-json-1";
 const CATS=["NBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90};
@@ -546,7 +546,8 @@ async function edgeCall(name,payload,ms){
  if(r.status===404)throw new Error("No '"+name+"' function deployed yet — add it in Supabase → Edge Functions");
  let j;
  try{j=await r.json();}catch(_){throw new Error("The "+name+" function returned something unreadable");}
- if(!r.ok)throw new Error(j.error||(name+" failed, HTTP "+r.status));
+ if(!r.ok){const extra=j.got?(" — model said: "+String(j.got).slice(0,160)):"";
+  throw new Error((j.error||(name+" failed, HTTP "+r.status))+extra);}
  return j;
 }
 async function scanAPI(b64){
