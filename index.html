@@ -244,7 +244,7 @@ textarea.fld-i{resize:vertical}
 "use strict";
 /* ============ constants ============ */
 const KEY="theslab.v1";
-const VERSION="2026.08.14-boot-1";
+const VERSION="2026.08.14-boot-2";
 const CATS=["NBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90};
@@ -1336,7 +1336,13 @@ async function checkSession(){
  measure().then(()=>{if(tab==="setup")render();});
  window.addEventListener("focus",()=>{if(user&&!rq.length&&!scanning)pullAll().then(render);});
 })();
-if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+if("serviceWorker"in navigator){
+ navigator.serviceWorker.register("sw.js").then(r=>{
+  if(r&&r.update)r.update();          // always check for a newer worker
+ }).catch(()=>{});
+ // clear anything cached by earlier versions of this app
+ if(window.caches)caches.keys().then(ks=>ks.forEach(k=>caches.delete(k))).catch(()=>{});
+}
 </script>
 </body>
 </html>
