@@ -13,15 +13,24 @@ STEP 1 — IDENTIFY. Read every piece of text visible on the card:
 - cat (exactly one of: NBA, NFL, MLB, NHL, Soccer, Boxing/MMA, Pokemon, Magic, Yu-Gi-Oh, Other TCG, Entertainment, Other)
 - If the card sits inside a graded slab, read the label: graded=true, plus grader (PSA/BGS/SGC/CGC/GCC/WCG/HGA/TAG/Other), grade, and cert number.
 
-STEP 2 — PRICE. Use web search to find what this card sells for now. Search for recent SOLD prices, not asking prices. Prefer eBay sold listings, PSA auction prices realized, Card Ladder, Sports Card Investor. Then set:
+STEP 2 — PRICE. Use web search to find what this card sells for now. Search for recent SOLD prices, not asking prices. Prefer eBay sold listings, PSA auction prices realized, Card Ladder, Sports Card Investor.
+
+Run SEPARATE searches for each price point. One search for the raw card will not tell you what the graded versions sell for.
+- Search 1: the raw / ungraded sold price
+- Search 2: the PSA 9 sold price, e.g. "1996 Topps Chrome Kobe Bryant 138 PSA 9 sold"
+- Search 3: the PSA 10 sold price, e.g. "1996 Topps Chrome Kobe Bryant 138 PSA 10 sold"
+
+Then set:
 - vRaw: value in its CURRENT form. For a slab, the value of that slab at that grade from that grader. For a raw card, the raw value.
-- v9: value if graded PSA 9. Raw cards only; 0 if already graded.
-- v10: value if graded PSA 10. Raw cards only; 0 if already graded.
+- v9: value if graded PSA 9.
+- v10: value if graded PSA 10.
+
+CRITICAL for RAW cards: v9 and v10 are the whole point of cataloguing a raw card — they decide whether it is worth grading. Do NOT return 0 for them. If direct PSA 9 and PSA 10 sales exist, use those. If you genuinely cannot find graded sales after searching, estimate from the raw value and from what comparable cards in the same set and era do, then say clearly in the note that these are estimates rather than observed sales. Return 0 for v9 and v10 ONLY when the card is already graded.
 
 Pricing rules that matter:
 - Off-brand graders (GCC, WCG, HGA and similar) carry little or no premium. Value close to raw.
 - Junk-wax era cards (roughly 1987-1999) are mass produced. PSA 9s are usually cheap while PSA 10s can be worth many times more. Reflect that gap honestly.
-- If you find no real sales data, estimate conservatively and say so in the note.
+- Never inflate a value to be encouraging. A low number is more useful than a flattering one.
 
 Respond with ONLY a JSON object. No preamble, no markdown fences, nothing after.
 
@@ -61,8 +70,8 @@ export default async (req) => {
       },
       body: JSON.stringify({
         model: "claude-sonnet-5",
-        max_tokens: 1200,
-        tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 4 }],
+        max_tokens: 1500,
+        tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 6 }],
         messages: [{
           role: "user",
           content: [
