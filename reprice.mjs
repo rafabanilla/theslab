@@ -14,15 +14,21 @@ ${slab}
 
 Use web search to find recent SOLD prices — not asking prices, not guide values. Prefer eBay sold listings, PSA auction prices realized, Card Ladder, and Sports Card Investor. Search for sales within the last few months where possible.
 
+Run SEPARATE searches for each price point. A search for the raw card will not tell you what the graded versions sell for.
+- Search 1: the card in its current form (raw, or that grader at that grade)
+- Search 2: the PSA 9 sold price
+- Search 3: the PSA 10 sold price
+
 Then set:
 - vRaw: what this card is worth in its CURRENT form. If graded, the value of that slab at that grade from that grader. If raw, the raw value.
-- v9: value if graded PSA 9. Raw cards only; 0 if already graded.
-- v10: value if graded PSA 10. Raw cards only; 0 if already graded.
+- v9: value if graded PSA 9.
+- v10: value if graded PSA 10.
+
+CRITICAL for RAW cards: v9 and v10 decide whether the card is worth grading, so they are the most important numbers here. Do NOT return 0 for them. If direct PSA 9 and PSA 10 sales exist, use those. If you genuinely cannot find graded sales after searching, estimate from the raw value and from comparable cards in the same set and era, then say clearly in the note that these are estimates rather than observed sales. Return 0 for v9 and v10 ONLY when the card is already graded.
 
 Rules that matter:
 - Off-brand graders (GCC, WCG, HGA and similar) carry little or no premium. Value close to raw.
 - Junk-wax era cards (roughly 1987-1999) are mass produced. PSA 9s are usually cheap while PSA 10s can be worth many times more. Reflect that gap honestly.
-- If you find no real sales data, estimate conservatively and say so in the note.
 - Never inflate a value to be encouraging. A low number is more useful than a flattering one.
 
 Respond with ONLY a JSON object. No preamble, no markdown fences, nothing after.
@@ -62,8 +68,8 @@ export default async (req) => {
       },
       body: JSON.stringify({
         model: "claude-sonnet-5",
-        max_tokens: 800,
-        tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }],
+        max_tokens: 1200,
+        tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 6 }],
         messages: [{ role: "user", content: buildPrompt(card) }],
       }),
     });
