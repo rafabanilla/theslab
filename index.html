@@ -37,6 +37,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .wm-1{font-weight:400;opacity:.55;margin-right:6px}
 .wm-2{font-weight:600}
 .save{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;opacity:.6}
+.verstamp{font-family:var(--mono);font-size:9px;opacity:.35;letter-spacing:.06em;margin-top:2px}
 .ticker{display:flex;margin-top:12px;border-top:1px solid rgba(255,255,255,.16)}
 .tick{flex:1;padding:9px 4px 11px;border-right:1px solid rgba(255,255,255,.12)}
 .tick:last-child{border-right:none}
@@ -241,6 +242,7 @@ textarea.fld-i{resize:vertical}
 "use strict";
 /* ============ constants ============ */
 const KEY="theslab.v1";
+const VERSION="2026.08.14-edge-1";
 const CATS=["NBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90};
@@ -649,6 +651,7 @@ function render(){
  let h=`<header class="hdr"><div class="hdr-top">
   <div class="wordmark"><span class="wm-1">THE</span><span class="wm-2">SLAB</span></div>
   <span class="save" id="saveflag"></span></div>
+  <div class="verstamp">build ${VERSION}</div>
   <div class="ticker">
    ${tick("cards",st.owned.length)}${tick("value",money(st.value))}
    ${tick("cost",money(st.cost))}${tick("grade now",st.cands.length,st.cands.length>0)}
@@ -812,6 +815,10 @@ function viewSetup(){
   <p class="note">${storeInfo?`Using <b>${storeInfo.used}</b> of about <b>${storeInfo.quota}</b> available (${storeInfo.pct}%).${storeInfo.persisted?" Protected from automatic cleanup.":""}`:"Checking…"}</p>
   ${storeInfo&&!storeInfo.persisted?`<button class="btn ghost wide" data-act="persist">Protect photos from cleanup</button>`:""}
   <p class="note">Photos live on this device at roughly 250KB each. Browsers can evict storage when space runs low — tap the button above to ask for protection, and keep CSV backups regardless.</p></div>
+
+ <div class="section"><div class="sec-hd"><h2>App version</h2></div>
+  <p class="note">Running build <b>${VERSION}</b>. If that isn't the build you just uploaded, you're on a cached copy.</p>
+  <button class="btn wide" data-act="hardrefresh">Clear cache and reload</button></div>
 
  <div class="section"><div class="sec-hd"><h2>This app</h2></div>
   <button class="btn wide" data-act="install" id="installbtn">Add to home screen</button>
@@ -1025,6 +1032,14 @@ document.addEventListener("click",async e=>{
   case"signout":await sb.auth.signOut();user=null;S.cards=[];
    localStorage.removeItem(CACHE);render();break;
   case"pull":await pullAll();render();toast("Refreshed");break;
+  case"hardrefresh":{
+   toast("Clearing…");
+   try{if("serviceWorker"in navigator){
+     const rs=await navigator.serviceWorker.getRegistrations();
+     for(const r of rs)await r.unregister();}
+    if(window.caches){const ks=await caches.keys();for(const k of ks)await caches.delete(k);}
+   }catch(_){}
+   location.reload();break;}
   case"seed":{const have=S.cards.map(c=>c.sku);
    const add=seed().filter(c=>have.indexOf(c.sku)===-1);
    if(!add.length){toast("They're already here");break;}

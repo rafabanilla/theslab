@@ -1,4 +1,4 @@
-const CACHE = 'slab-v1';
+const CACHE = 'slab-2026-08-14-edge-1';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
