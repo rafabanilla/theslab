@@ -285,6 +285,7 @@ function gradeCall(c){
  if(c.graded)return null;
  const raw=n(c.vRaw),v9=n(c.v9),v10=n(c.v10);
  if(!raw&&!v9&&!v10)return{verdict:"unpriced",net:0};
+ if(!v9&&!v10)return{verdict:"nograded",net:0};
  const p=CONF[c.conf]||CONF.med, pLow=Math.max(0,1-p.p10-p.p9);
  const ev=p.p10*v10+p.p9*v9+pLow*raw*1.15-n(S.settings.gradingCost);
  const net=ev-raw;
@@ -545,6 +546,7 @@ function slabRow(c){
    ${c.review?`<div class="flag warn">Check this one</div>`:""}
    ${g&&g.verdict==="grade"?`<div class="flag">Grade this — +${money(g.net)} expected</div>`:""}
    ${g&&g.verdict==="maybe"?`<div class="flag soft">Borderline grading call</div>`:""}
+   ${g&&g.verdict==="nograded"?`<div class="flag stale">Missing PSA 9 / 10 comps</div>`:""}
    ${isStale(c)?`<div class="flag stale">Price is ${daysSince(c.pricedOn)} days old</div>`:""}
   </div>
   ${f?`<img class="thumb" src="${esc(f)}" alt="" loading="lazy" onerror="this.remove()">`
@@ -557,7 +559,9 @@ function viewGrading(){
    .filter(r=>r.g).sort((a,b)=>b.g.net-a.g.net);
  const G=v=>rows.filter(r=>r.g.verdict===v);
  let h=`<div class="pane"><div class="note">Each raw card is scored against your grading cost of ${money(S.settings.gradingCost)} and the odds you set on its condition. Both live in Setup.</div>`;
- h+=sec("Send these in",G("grade"))+sec("Borderline",G("maybe"))+sec("Need prices before I can call it",G("unpriced").slice(0,40));
+ h+=sec("Send these in",G("grade"))+sec("Borderline",G("maybe"))
+  +sec("No PSA 9 / 10 comps yet — can't call it",G("nograded").slice(0,40))
+  +sec("Need prices before I can call it",G("unpriced").slice(0,40));
  if(!rows.length)h+=`<div class="empty"><p>No raw cards yet. Add some and they'll be scored here.</p></div>`;
  return h+"</div>";
 }
@@ -570,7 +574,8 @@ function growRow({c,g}){
  return`<div class="grow" data-open="${c.id}">
   <div class="grow-hd"><span class="grow-t">${esc([c.year,c.set,c.subject,c.num?"#"+c.num:""].filter(Boolean).join(" "))}</span>
   ${g.verdict!=="unpriced"?`<span class="grow-net${g.net>0?" pos":""}">${g.net>0?"+":""}${money(g.net)}</span>`:""}</div>
-  ${g.verdict==="unpriced"?`<div class="grow-empty">Add a raw value plus PSA 9 / 10 comps to score this one.</div>`:
+  ${g.verdict==="unpriced"?`<div class="grow-empty">No prices yet. Refresh this card or fill them in.</div>`:
+   g.verdict==="nograded"?`<div class="grow-empty">Priced raw at ${money(c.vRaw)}, but no PSA 9 / 10 sales found — so there's no honest grading call to make. Tap Refresh price, or enter them yourself.</div>`:
    `<div class="bars">${bar("raw",raw,max,"b-raw")}${bar("psa 9",v9,max,"b-9")}${bar("psa 10",v10,max,"b-10")}</div>`}
  </div>`;
 }
@@ -672,10 +677,11 @@ function viewSheet(){
  h+=`<button class="btn ghost wide" data-act="repriceone">${daysSince(c.pricedOn)>900?"Look up the price":`Refresh price (${daysSince(c.pricedOn)} days old)`}</button>`;
  if(c.lastMove)h+=`<div class="note" style="margin-top:6px">Last refresh moved this ${c.lastMove>0?"up":"down"} ${money(Math.abs(c.lastMove))}.</div>`;
  if(g&&g.verdict!=="unpriced"){
-  const t=g.verdict==="grade"?`Worth grading — about ${money(g.net)} more than selling it raw, after the ${money(S.settings.gradingCost)} fee.`
+  const t=g.verdict==="nograded"?`No PSA 9 or 10 sales found for this card, so the grading maths can't run. Fill in those two values, or tap Refresh price.`:
+   g.verdict==="grade"?`Worth grading — about ${money(g.net)} more than selling it raw, after the ${money(S.settings.gradingCost)} fee.`
    :g.verdict==="maybe"?`Marginal — roughly ${money(g.net)} of upside. Only worth it if you're sending a batch anyway.`
    :`Not worth grading. The fee eats the gain.`;
-  h+=`<div class="verdict v-${g.verdict}">${t}</div>`;}
+  h+=`<div class="verdict v-${g.verdict==="nograded"?"maybe":g.verdict}">${t}</div>`;}
  h+=`<div class="divider">Selling</div>
   ${sel("Status","status",c.status,[["owned","In the collection"],["listed","Listed for sale"],["sold","Sold"]])}`;
  if(c.status==="listed")h+=fld("Asking price","listPrice",c.listPrice,"","f","number");
