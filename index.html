@@ -242,7 +242,7 @@ textarea.fld-i{resize:vertical}
 "use strict";
 /* ============ constants ============ */
 const KEY="theslab.v1";
-const VERSION="2026.08.14-edge-3";
+const VERSION="2026.08.14-split-1";
 const CATS=["NBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90};
@@ -482,7 +482,7 @@ async function edgeCall(name,payload,ms){
  return j;
 }
 async function scanAPI(b64){
- return edgeCall("scan",{image:b64,mediaType:"image/jpeg"},140000);
+ return edgeCall("scan",{image:b64,mediaType:"image/jpeg"},60000);
 }
 function enqueue(files){
  for(const f of files)queue.push({qid:"q"+Date.now()+Math.random().toString(36).slice(2,5),
@@ -508,14 +508,13 @@ async function pump(){
    year:r.year||"",set:r.set||"",subject:r.subject||"",num:r.num||"",
    variant:r.variant||"",serial:r.serial||"",
    graded:!!r.graded,grader:r.grader||"PSA",grade:r.grade||"",cert:r.cert||"",
-   vRaw:n(r.vRaw)||"",v9:n(r.v9)||"",v10:n(r.v10)||"",
-   pricedOn:new Date().toISOString().slice(0,10),
    notes:r.note||"",review:r.confidence!=="high"});
   S.cards.unshift(c);
   try{c.photoF=await uploadPhoto(c.id,"F",shot);}catch(_){}
   await pushCard(c);
   it.state="done";it.cardId=c.id;it.conf=r.confidence;
   it.label=[r.year,r.set,r.subject].filter(Boolean).join(" ")||"Unidentified";
+  if(c.subject||c.set)queueReprice([c]);
  }catch(e){it.state="failed";it.err=e.message||String(e);}
  clearInterval(window._tick);
  scanning=false;render();pump();
@@ -525,7 +524,7 @@ function viewScan(){
  const done=queue.filter(q=>q.state==="done").length;
  let h=`<div class="pane"><div class="hero">
   <h1 class="hero-t">Photograph a card.<br>Get everything else.</h1>
-  <p class="hero-s">Reads the card, searches for what it actually sells for, keeps the photo. Shoot a stack — they process one after another.</p>
+  <p class="hero-s">Reads the card first, then looks up what it sells for. Cards appear in seconds; prices land a little after. Shoot a stack and let it work.</p>
   <button class="btn big" data-act="shoot">Take a photo</button>
   <button class="btn ghost big" data-act="pick">Choose from library</button></div>`;
  if(queue.length){
@@ -534,8 +533,8 @@ function viewScan(){
    ${q.preview?`<img class="qimg" src="${q.preview}" alt="">`:`<div class="qimg ph"></div>`}
    <div class="qbody"><div class="qname">${esc(q.state==="done"?q.label:q.name)}</div>
    <div class="qstate">${q.state==="waiting"?"waiting":
-    q.state==="reading"?`<span class="pulse">reading the card, checking comps…</span> <span id="elapsed" class="els">0s</span>`:
-    q.state==="done"?(q.conf==="high"?"identified":"identified — worth a look"):
+    q.state==="reading"?`<span class="pulse">reading the card…</span> <span id="elapsed" class="els">0s</span>`:
+    q.state==="done"?(q.conf==="high"?"identified — pricing next":"identified, worth a look — pricing next"):
     `<span class="bad">${esc(q.err)}</span>`}</div></div>
    ${q.state==="done"?`<span class="qdot ${q.conf==="high"?"ok":"warn"}"></span>`:""}
   </div>`).join("");
