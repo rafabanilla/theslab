@@ -244,7 +244,7 @@ textarea.fld-i{resize:vertical}
 "use strict";
 /* ============ constants ============ */
 const KEY="theslab.v1";
-const VERSION="2026.08.14-dedupe-1";
+const VERSION="2026.08.14-boot-1";
 const CATS=["NBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90};
@@ -334,10 +334,15 @@ function initClient(){
 }
 
 /* local cache: instant load, read-only when offline */
-function save(){try{localStorage.setItem(CACHE,JSON.stringify({...S,pending}));}catch(_){}}
+let cacheLoaded=false;
+function save(){
+ if(!cacheLoaded)return;            // refuse to persist before we've read what's there
+ try{localStorage.setItem(CACHE,JSON.stringify({...S,pending}));}catch(_){}
+}
 function loadCache(){try{const r=localStorage.getItem(CACHE);if(r){const d=JSON.parse(r);
- S.cards=d.cards||[];S.settings={...DEF_SET,...(d.settings||{})};pending=d.pending||{};return true;}}catch(_){}
- S.cards=[];return false;}
+ S.cards=d.cards||[];S.settings={...DEF_SET,...(d.settings||{})};pending=d.pending||{};
+ cacheLoaded=true;return true;}}catch(_){}
+ S.cards=[];cacheLoaded=true;return false;}
 
 /* column mapping: JS camelCase <-> Postgres snake_case */
 const MAP={sku:"sku",cat:"cat",year:"year",set:"set_name",subject:"subject",num:"num",
@@ -401,7 +406,14 @@ async function pullAll(){
  try{
   const data=await rest("/rest/v1/cards?select=*&order=updated_at.desc",
    {method:"GET",headers:restHeaders()},25000,"sync");
-  const rows=(data||[]).map(fromRow);
+  if(!Array.isArray(data))throw new Error("sync returned nothing usable");
+  const rows=data.map(fromRow);
+  if(!rows.length&&S.cards.length){
+   // server empty but we hold cards: keep ours and push them back rather than wiping
+   setSync("server empty — keeping local");
+   S.cards.forEach(c=>{pending[c.id]=true;});save();
+   retryPending();return;
+  }
   const seen={};rows.forEach(c=>{seen[c.id]=true;});
   // anything still unsaved locally survives the sync
   const keep=S.cards.filter(c=>pending[c.id]&&!seen[c.id]);
@@ -411,7 +423,7 @@ async function pullAll(){
     {method:"GET",headers:restHeaders()},15000,"settings");
    if(s&&s[0]&&s[0].data)S.settings={...DEF_SET,...s[0].data};}catch(_){}
   save();setSync("synced");setTimeout(()=>setSync(""),1500);
- }catch(e){setSync("offline");}
+ }catch(e){setSync("sync failed — local kept");}
 }
 async function pushCard(c){
  save();
@@ -1295,21 +1307,28 @@ async function measure(){
 /* ============ boot ============ */
 async function checkSession(){
  if(!sb)return;
- try{const {data}=await sb.auth.getSession();
-  user=data&&data.session?data.session.user:null;
-  if(user){authToken=data.session.access_token;loadCache();render();await pullAll();render();}
- }catch(_){}
+ let data=null;
+ try{const res=await raced(sb.auth.getSession(),8000,"session check");data=res&&res.data;}
+ catch(_){setSync("offline");}
+ user=data&&data.session?data.session.user:null;
+ if(user){
+  authToken=data.session.access_token;
+  render();
+  try{await pullAll();}catch(_){}
+  render();
+ }
 }
 (async function boot(){
  loadCfg();
  if(cfg)initClient();
+ loadCache();          // show what we already have, immediately
  render();
  if(sb){
   sb.auth.onAuthStateChange(async (evt,sess)=>{
    const was=user?user.id:null;
    user=sess?sess.user:null;
    authToken=sess?sess.access_token:null;
-   if(user&&user.id!==was){loadCache();render();await pullAll();}
+   if(user&&user.id!==was){render();try{await pullAll();}catch(_){}}
    render();
   });
   await checkSession();
