@@ -176,6 +176,15 @@ textarea.fld-i{resize:vertical}
   background:var(--ink);color:#fff;padding:10px 16px;border-radius:3px;font-size:13px;z-index:60;
   box-shadow:0 4px 20px rgba(0,0,0,.3);max-width:90vw;text-align:center}
 
+/* price refresh */
+.rbanner{position:sticky;top:140px;z-index:18;display:flex;align-items:center;gap:10px;
+  background:var(--gold);color:#fff;padding:8px 14px;font-size:12px;font-family:var(--mono)}
+.rcount{margin-left:auto;opacity:.85}
+.rstop{color:#fff;text-decoration:underline;font-size:11px;font-family:var(--mono)}
+.mini{font-family:var(--mono);font-size:10px;color:var(--red);text-decoration:underline;
+  margin-left:8px;letter-spacing:.03em}
+.flag.stale{color:#5C4409;background:#FDF0D9;font-weight:500}
+
 /* scan view */
 .hero{background:var(--ink);color:#fff;padding:26px 20px 24px;border-radius:3px;margin-bottom:6px}
 .hero-t{font-family:var(--disp);font-weight:500;font-size:27px;line-height:1.15;margin:0 0 10px}
@@ -220,7 +229,7 @@ textarea.fld-i{resize:vertical}
 const KEY="theslab.v1";
 const CATS=["NBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
-const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$"};
+const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90};
 const CONF={low:{p10:.08,p9:.32},med:{p10:.22,p9:.45},high:{p10:.42,p9:.42}};
 
 const SEED=[
@@ -254,7 +263,7 @@ let photoCache={}, picTarget=null, deferredPrompt=null;
 function blank(sku){return{id:"c"+Date.now()+Math.random().toString(36).slice(2,6),sku:sku||"",cat:"NBA",
  year:"",set:"",subject:"",num:"",variant:"",serial:"",qty:1,graded:false,grader:"PSA",grade:"",cert:"",
  conf:"med",photoF:"",photoB:"",cost:"",acqDate:"",source:"",vRaw:"",v9:"",v10:"",pricedOn:"",
- status:"owned",listPrice:"",salePrice:"",saleDate:"",salePlatform:"",loc:"",notes:"",review:false};}
+ status:"owned",listPrice:"",salePrice:"",saleDate:"",salePlatform:"",loc:"",notes:"",review:false,lastMove:0};}
 
 function seed(){return SEED.map(r=>{const c=blank(r[0]);c.id=r[0];c.sku=r[0];c.year=r[1];c.set=r[2];
  c.subject=r[3];c.num=r[4];c.variant=r[5];c.graded=true;c.grader=r[6];c.grade=r[7];c.vRaw=r[8];
@@ -403,6 +412,70 @@ function viewScan(){
  return h;
 }
 
+
+/* ============ price refresh ============ */
+function daysSince(d){
+ if(!d)return 9999;
+ const t=Date.parse(d);if(isNaN(t))return 9999;
+ return Math.floor((Date.now()-t)/86400000);
+}
+function isStale(c){
+ if(c.status==="sold")return false;
+ if(!n(c.vRaw))return false;
+ return daysSince(c.pricedOn)>n(S.settings.staleDays||90);
+}
+let rq=[], rBusy=false, rDone=0, rFail=0;
+
+async function repriceAPI(c){
+ const card={year:c.year,set:c.set,subject:c.subject,num:c.num,variant:c.variant,
+  serial:c.serial,cat:c.cat,graded:c.graded,grader:c.grader,grade:c.grade};
+ const body=JSON.stringify({card});
+ for(const path of ["/api/reprice","/.netlify/functions/reprice"]){
+  let r;
+  try{r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body});}
+  catch(_){continue;}
+  const ct=(r.headers.get("content-type")||"");
+  if(r.status===404||ct.indexOf("json")===-1)continue;
+  const j=await r.json();
+  if(!r.ok)throw new Error(j.error||("Refresh failed, HTTP "+r.status));
+  return j;
+ }
+ throw new Error("Price refresh function not deployed — check netlify/functions/reprice.mjs");
+}
+
+function queueReprice(cards){
+ const ids=cards.map(c=>c.id).filter(id=>rq.indexOf(id)===-1);
+ if(!ids.length){toast("Nothing to refresh");return;}
+ rq=rq.concat(ids);rDone=0;rFail=0;render();rpump();
+}
+async function rpump(){
+ if(rBusy)return;
+ if(!rq.length){if(rDone||rFail){toast(`Refreshed ${rDone}${rFail?", "+rFail+" failed":""}`);rDone=0;rFail=0;render();}return;}
+ rBusy=true;
+ const id=rq[0];
+ const c=S.cards.find(x=>x.id===id);
+ if(!c){rq.shift();rBusy=false;return rpump();}
+ try{
+  const r=await repriceAPI(c);
+  const before=n(c.vRaw);
+  c.vRaw=n(r.vRaw)||c.vRaw;
+  if(!c.graded){c.v9=n(r.v9)||c.v9;c.v10=n(r.v10)||c.v10;}
+  c.pricedOn=new Date().toISOString().slice(0,10);
+  c.lastMove=before?Math.round(n(c.vRaw)-before):0;
+  if(r.note)c.notes=r.note;
+  if(r.confidence&&r.confidence!=="high")c.review=true;
+  save();rDone++;
+ }catch(e){rFail++;toast(e.message||"Refresh failed");}
+ rq.shift();rBusy=false;render();
+ setTimeout(rpump,400);
+}
+function repriceBanner(){
+ if(!rq.length)return"";
+ return`<div class="rbanner"><span class="pulse">Refreshing prices…</span>
+  <span class="rcount">${rq.length} left</span>
+  <button class="rstop" data-act="stopreprice">stop</button></div>`;
+}
+
 /* ============ render ============ */
 function render(){
  const st=stats();
@@ -415,6 +488,7 @@ function render(){
   </div></header>
   <nav class="tabs">${[["scan","Scan"],["collection","Cards"],["grading","Grading"],["money","Money"],["setup","Setup"]]
    .map(([k,l])=>`<button class="tab${tab===k?" on":""}" data-tab="${k}">${l}</button>`).join("")}</nav>`;
+ h+=repriceBanner();
  h+=tab==="scan"?viewScan():tab==="collection"?viewCollection():tab==="grading"?viewGrading():tab==="money"?viewMoney(st):viewSetup();
  if(tab==="collection")h+=`<button class="fab" data-act="new" aria-label="Add a card">+</button>`;
  if(editing)h+=viewSheet();
@@ -435,6 +509,7 @@ function viewCollection(){
   if(F.only==="graded"&&!c.graded)return false;
   if(F.only==="unpriced"&&n(c.vRaw))return false;
   if(F.only==="review"&&!c.review)return false;
+  if(F.only==="stale"&&!isStale(c))return false;
   if(F.only==="sold"&&c.status!=="sold")return false;
   if(F.only!=="sold"&&c.status==="sold")return false;
   if(!F.q)return true;
@@ -443,12 +518,14 @@ function viewCollection(){
  list.sort((a,b)=>F.sort==="value"?n(b.vRaw)-n(a.vRaw):F.sort==="year"?n(b.year)-n(a.year):
   (a.subject||"").localeCompare(b.subject||""));
  const cats=["all",...new Set(S.cards.map(c=>c.cat))];
+ window._visible=list;
  let h=`<div class="pane"><input class="search" id="q" placeholder="Search player, set, year, SKU" value="${esc(F.q)}">
   <div class="chips">${cats.map(c=>`<button class="chip${F.cat===c?" on":""}" data-cat="${esc(c)}">${c==="all"?"All sports":esc(c)}</button>`).join("")}</div>
-  <div class="chips">${[["all","Everything"],["review","Needs review"],["raw","Raw"],["graded","Graded"],["unpriced","No price yet"],["sold","Sold"]]
+  <div class="chips">${[["all","Everything"],["stale","Stale prices"],["review","Needs review"],["raw","Raw"],["graded","Graded"],["unpriced","No price yet"],["sold","Sold"]]
    .map(([k,l])=>`<button class="chip${F.only===k?" on":""}" data-only="${k}">${l}</button>`).join("")}
    <button class="chip alt" data-act="sort">Sort: ${F.sort}</button></div>
-  <div class="count">${list.length} card${list.length===1?"":"s"}</div>`;
+  <div class="count">${list.length} card${list.length===1?"":"s"}
+   ${list.length&&list.some(c=>c.subject||c.set)?`<button class="mini" data-act="repriceview">refresh these prices</button>`:""}</div>`;
  if(!list.length)h+=`<div class="empty"><p>Nothing here yet.</p><button class="btn" data-act="new">Add your first card</button></div>`;
  else{h+=list.slice(0,F.limit).map(slabRow).join("");
   if(list.length>F.limit)h+=`<button class="btn ghost wide" data-act="more">Show 50 more (${list.length-F.limit} left)</button>`;}
@@ -468,6 +545,7 @@ function slabRow(c){
    ${c.review?`<div class="flag warn">Check this one</div>`:""}
    ${g&&g.verdict==="grade"?`<div class="flag">Grade this — +${money(g.net)} expected</div>`:""}
    ${g&&g.verdict==="maybe"?`<div class="flag soft">Borderline grading call</div>`:""}
+   ${isStale(c)?`<div class="flag stale">Price is ${daysSince(c.pricedOn)} days old</div>`:""}
   </div>
   ${f?`<img class="thumb" src="${esc(f)}" alt="" loading="lazy" onerror="this.remove()">`
      :`<img class="thumb" data-lazy="${c.id}-F" alt="" onerror="this.remove()">`}
@@ -532,6 +610,14 @@ function viewSetup(){
   ${fld("Photo folder URL","photoBase",S.settings.photoBase,"https://res.cloudinary.com/you/cards","set")}
   ${fld("File extension","photoExt",S.settings.photoExt,"jpg","set")}</div>
 
+ <div class="section"><div class="sec-hd"><h2>Prices</h2></div>
+  ${(()=>{const st=S.cards.filter(isStale);const un=S.cards.filter(c=>c.status!=="sold"&&!n(c.vRaw)&&(c.subject||c.set));
+   return `<p class="note">${st.length} card${st.length===1?"":"s"} priced more than ${esc(S.settings.staleDays)} days ago${un.length?`, and ${un.length} never priced`:""}.</p>
+   ${st.length?`<button class="btn wide" data-act="repricestale">Refresh ${st.length} stale price${st.length===1?"":"s"}</button>`:""}
+   ${un.length?`<button class="btn ghost wide" data-act="priceunpriced">Price ${un.length} unpriced card${un.length===1?"":"s"}</button>`:""}`;})()}
+  ${fld("Call a price stale after (days)","staleDays",S.settings.staleDays,"90","set","number")}
+  <p class="note">Refreshing skips the photo, so it costs roughly 1-3 cents a card. Worth doing monthly on your best cards, quarterly on the rest, and always right before you list something.</p></div>
+
  <div class="section"><div class="sec-hd"><h2>Numbers</h2></div>
   ${fld("Grading cost per card (incl. shipping)","gradingCost",S.settings.gradingCost,"","set","number")}
   ${fld("Selling fees %","feePct",S.settings.feePct,"","set","number")}
@@ -583,6 +669,8 @@ function viewSheet(){
   ${fld("Current value as-is","vRaw",c.vRaw,"","f","number")}`;
  if(!c.graded)h+=`<div class="row2">${fld("Value if PSA 9","v9",c.v9,"","f","number")}${fld("Value if PSA 10","v10",c.v10,"","f","number")}</div>`;
  h+=fld("Prices checked on","pricedOn",c.pricedOn,"","f","date");
+ h+=`<button class="btn ghost wide" data-act="repriceone">${daysSince(c.pricedOn)>900?"Look up the price":`Refresh price (${daysSince(c.pricedOn)} days old)`}</button>`;
+ if(c.lastMove)h+=`<div class="note" style="margin-top:6px">Last refresh moved this ${c.lastMove>0?"up":"down"} ${money(Math.abs(c.lastMove))}.</div>`;
  if(g&&g.verdict!=="unpriced"){
   const t=g.verdict==="grade"?`Worth grading — about ${money(g.net)} more than selling it raw, after the ${money(S.settings.gradingCost)} fee.`
    :g.verdict==="maybe"?`Marginal — roughly ${money(g.net)} of upside. Only worth it if you're sending a batch anyway.`
@@ -706,6 +794,11 @@ document.addEventListener("click",async e=>{
   case"nodel":confirmDel=false;render();break;
   case"del":await delPhoto(editing.id+"-F");await delPhoto(editing.id+"-B");
    S.cards=S.cards.filter(c=>c.id!==editing.id);save();editing=null;render();toast("Deleted");break;
+  case"repriceone":if(editing){commit();queueReprice([S.cards.find(c=>c.id===editing.id)]);editing=null;render();}break;
+  case"repriceview":queueReprice((window._visible||[]).filter(c=>c.subject||c.set));break;
+  case"repricestale":queueReprice(S.cards.filter(isStale));break;
+  case"priceunpriced":queueReprice(S.cards.filter(c=>c.status!=="sold"&&!n(c.vRaw)&&(c.subject||c.set)));break;
+  case"stopreprice":rq=[];toast("Stopped");render();break;
   case"exp-full":exportCSV("full");break;
   case"exp-list":exportCSV("list");break;
   case"imp":document.getElementById("csvin").click();break;
