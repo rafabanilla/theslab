@@ -242,7 +242,7 @@ textarea.fld-i{resize:vertical}
 "use strict";
 /* ============ constants ============ */
 const KEY="theslab.v1";
-const VERSION="2026.08.14-edge-2";
+const VERSION="2026.08.14-edge-3";
 const CATS=["NBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90};
@@ -473,7 +473,7 @@ async function edgeCall(name,payload,ms){
    body:JSON.stringify(payload),signal:to.signal});
  }catch(err){to.done();
   if(err&&err.name==="AbortError")throw new Error("Timed out after "+Math.round((ms||140000)/1000)+"s");
-  throw new Error("Couldn't reach the "+name+" function");}
+  throw new Error("Blocked before reaching '"+name+"'. In Supabase → Edge Functions → "+name+" → Settings, turn OFF 'Verify JWT with legacy secret'.");}
  to.done();
  if(r.status===404)throw new Error("No '"+name+"' function deployed yet — add it in Supabase → Edge Functions");
  let j;
