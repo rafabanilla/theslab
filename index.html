@@ -212,6 +212,7 @@ textarea.fld-i{resize:vertical}
 .qname{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .qstate{font-family:var(--mono);font-size:10.5px;color:var(--mute);margin-top:3px}
 .qstate .bad{color:var(--red)}
+.els{color:var(--gold);font-weight:600}
 .pulse{animation:pl 1.4s ease-in-out infinite}
 @keyframes pl{0%,100%{opacity:.45}50%{opacity:1}}
 .qdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
@@ -453,21 +454,35 @@ function stats(){
 
 
 /* ============ scan engine ============ */
+function withTimeout(ms){
+ const ac=new AbortController();
+ const t=setTimeout(()=>ac.abort(),ms);
+ return {signal:ac.signal,done:()=>clearTimeout(t)};
+}
+async function edgeCall(name,payload,ms){
+ if(!sb||!cfg)throw new Error("Not connected");
+ let token=cfg.key;
+ try{const {data}=await sb.auth.getSession();
+  if(data&&data.session)token=data.session.access_token;}catch(_){}
+ const to=withTimeout(ms||140000);
+ let r;
+ try{
+  r=await fetch(cfg.url.replace(/\/+$/,"")+"/functions/v1/"+name,{
+   method:"POST",
+   headers:{"Content-Type":"application/json","Authorization":"Bearer "+token,"apikey":cfg.key},
+   body:JSON.stringify(payload),signal:to.signal});
+ }catch(err){to.done();
+  if(err&&err.name==="AbortError")throw new Error("Timed out after "+Math.round((ms||140000)/1000)+"s");
+  throw new Error("Couldn't reach the "+name+" function");}
+ to.done();
+ if(r.status===404)throw new Error("No '"+name+"' function deployed yet — add it in Supabase → Edge Functions");
+ let j;
+ try{j=await r.json();}catch(_){throw new Error("The "+name+" function returned something unreadable");}
+ if(!r.ok)throw new Error(j.error||(name+" failed, HTTP "+r.status));
+ return j;
+}
 async function scanAPI(b64){
- const body=JSON.stringify({image:b64,mediaType:"image/jpeg"});
- const paths=["/api/scan","/.netlify/functions/scan"];
- let last="";
- for(const path of paths){
-  let r;
-  try{r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body});}
-  catch(_){last="Couldn't reach "+path;continue;}
-  const ct=(r.headers.get("content-type")||"");
-  if(r.status===404||ct.indexOf("json")===-1){last="No function at "+path+" (HTTP "+r.status+")";continue;}
-  const j=await r.json();
-  if(!r.ok)throw new Error(j.error||("Scan failed, HTTP "+r.status));
-  return j;
- }
- throw new Error(last+" — check the deploy log lists a function called scan");
+ return edgeCall("scan",{image:b64,mediaType:"image/jpeg"},140000);
 }
 function enqueue(files){
  for(const f of files)queue.push({qid:"q"+Date.now()+Math.random().toString(36).slice(2,5),
@@ -480,7 +495,12 @@ async function pump(){
  scanning=true;it.state="reading";render();
  try{
   const shot=await compress(it.file);
-  it.preview=shot;render();
+  it.preview=shot;it.t0=Date.now();render();
+  clearInterval(window._tick);
+  window._tick=setInterval(()=>{
+   const el=document.getElementById("elapsed");
+   if(el&&it.t0)el.textContent=Math.round((Date.now()-it.t0)/1000)+"s";
+  },1000);
   const r=await scanAPI(shot.split(",")[1]);
   const c=blank(nextSku());
   Object.assign(c,{
@@ -497,6 +517,7 @@ async function pump(){
   it.state="done";it.cardId=c.id;it.conf=r.confidence;
   it.label=[r.year,r.set,r.subject].filter(Boolean).join(" ")||"Unidentified";
  }catch(e){it.state="failed";it.err=e.message||String(e);}
+ clearInterval(window._tick);
  scanning=false;render();pump();
 }
 function viewScan(){
@@ -513,7 +534,7 @@ function viewScan(){
    ${q.preview?`<img class="qimg" src="${q.preview}" alt="">`:`<div class="qimg ph"></div>`}
    <div class="qbody"><div class="qname">${esc(q.state==="done"?q.label:q.name)}</div>
    <div class="qstate">${q.state==="waiting"?"waiting":
-    q.state==="reading"?`<span class="pulse">reading the card, checking comps…</span>`:
+    q.state==="reading"?`<span class="pulse">reading the card, checking comps…</span> <span id="elapsed" class="els">0s</span>`:
     q.state==="done"?(q.conf==="high"?"identified":"identified — worth a look"):
     `<span class="bad">${esc(q.err)}</span>`}</div></div>
    ${q.state==="done"?`<span class="qdot ${q.conf==="high"?"ok":"warn"}"></span>`:""}
@@ -546,20 +567,8 @@ let rq=[], rBusy=false, rDone=0, rFail=0;
 async function repriceAPI(c){
  const card={year:c.year,set:c.set,subject:c.subject,num:c.num,variant:c.variant,
   serial:c.serial,cat:c.cat,graded:c.graded,grader:c.grader,grade:c.grade};
- const body=JSON.stringify({card});
- for(const path of ["/api/reprice","/.netlify/functions/reprice"]){
-  let r;
-  try{r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body});}
-  catch(_){continue;}
-  const ct=(r.headers.get("content-type")||"");
-  if(r.status===404||ct.indexOf("json")===-1)continue;
-  const j=await r.json();
-  if(!r.ok)throw new Error(j.error||("Refresh failed, HTTP "+r.status));
-  return j;
- }
- throw new Error("Price refresh function not deployed — check netlify/functions/reprice.mjs");
+ return edgeCall("reprice",{card},140000);
 }
-
 function queueReprice(cards){
  const ids=cards.map(c=>c.id).filter(id=>rq.indexOf(id)===-1);
  if(!ids.length){toast("Nothing to refresh");return;}
