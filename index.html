@@ -148,6 +148,8 @@ textarea.fld-i{resize:vertical}
 .empty{text-align:center;padding:50px 20px;color:var(--mute)}
 .note{font-size:12px;color:var(--mute);line-height:1.55;margin-bottom:12px}
 .note code{font-family:var(--mono);background:#DDE1E7;padding:1px 4px;font-size:11px}
+.diag{font-family:var(--mono);font-size:11px;line-height:1.6;background:var(--ink);color:#D6DAE0;
+ padding:12px;border-radius:2px;overflow-x:auto;white-space:pre;margin-top:10px}
 .note.ok{color:var(--green);font-weight:500}
 
 .sheet-wrap{position:fixed;inset:0;background:rgba(21,23,27,.5);z-index:50;display:flex;align-items:flex-end}
@@ -242,7 +244,7 @@ textarea.fld-i{resize:vertical}
 "use strict";
 /* ============ constants ============ */
 const KEY="theslab.v1";
-const VERSION="2026.08.14-split-1";
+const VERSION="2026.08.14-diag-1";
 const CATS=["NBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90};
@@ -813,6 +815,11 @@ function viewSetup(){
   ${storeInfo&&!storeInfo.persisted?`<button class="btn ghost wide" data-act="persist">Protect photos from cleanup</button>`:""}
   <p class="note">Photos live on this device at roughly 250KB each. Browsers can evict storage when space runs low — tap the button above to ask for protection, and keep CSV backups regardless.</p></div>
 
+ <div class="section"><div class="sec-hd"><h2>Diagnostics</h2></div>
+  <p class="note">Checks each link in the chain separately, without spending any API credit.</p>
+  <button class="btn wide" data-act="diag">Run connection test</button>
+  ${window._diag?`<pre class="diag">${esc(window._diag)}</pre>`:""}</div>
+
  <div class="section"><div class="sec-hd"><h2>App version</h2></div>
   <p class="note">Running build <b>${VERSION}</b>. If that isn't the build you just uploaded, you're on a cached copy.</p>
   <button class="btn wide" data-act="hardrefresh">Clear cache and reload</button></div>
@@ -1030,6 +1037,30 @@ document.addEventListener("click",async e=>{
   case"signout":await sb.auth.signOut();user=null;authToken=null;S.cards=[];
    localStorage.removeItem(CACHE);render();break;
   case"pull":await pullAll();render();toast("Refreshed");break;
+  case"diag":{
+   window._diag="running…";render();
+   const out=[];
+   out.push("app build   : "+VERSION);
+   out.push("signed in   : "+(user?user.email:"NO"));
+   out.push("token held  : "+(authToken?"yes":"no — using anon key"));
+   out.push("project     : "+(cfg?cfg.url:"none"));
+   for(const fn of ["scan","reprice"]){
+    const t0=Date.now();
+    try{
+     const r=await edgeCall(fn,{ping:true},15000);
+     const ms=Date.now()-t0;
+     out.push("");
+     out.push(fn+" reachable : yes ("+ms+"ms)");
+     out.push(fn+" deployed  : "+(r.fnVersion||"UNKNOWN — old code"));
+     out.push(fn+" api key   : "+(r.hasApiKey?"present":"MISSING"));
+     out.push(fn+" websearch : "+(r.searchEnabled?"on":"off"));
+    }catch(e){
+     out.push("");
+     out.push(fn+" reachable : NO ("+(Date.now()-t0)+"ms)");
+     out.push(fn+" error     : "+(e.message||e));
+    }
+   }
+   window._diag=out.join("\n");render();break;}
   case"hardrefresh":{
    toast("Clearing…");
    try{if("serviceWorker"in navigator){
