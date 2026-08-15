@@ -276,7 +276,7 @@ textarea.fld-i{resize:vertical}
 "use strict";
 /* ============ constants ============ */
 const KEY="theslab.v1";
-const VERSION="2026.08.15-comps-1";
+const VERSION="2026.08.15-sku-1";
 const CATS=["NBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90};
@@ -535,6 +535,26 @@ async function logPrice(c,r){
    n_comps:n(r.totalComps)||0,confidence:r.confidence||""}])},15000,"history");
  }catch(_){}
 }
+function findSkuDupes(){
+ const seen={},dupes=[];
+ S.cards.slice().sort((a,b)=>String(a.id).localeCompare(String(b.id))).forEach(c=>{
+  const k=String(c.sku||"").trim().toUpperCase();
+  if(!k)return;
+  if(seen[k])dupes.push(c); else seen[k]=c.id;
+ });
+ return dupes;
+}
+async function fixSkuDupes(){
+ const dupes=findSkuDupes();
+ if(!dupes.length)return 0;
+ for(const c of dupes){
+  c.sku=nextSku(true);
+  releaseSku(c.sku);
+  await pushCard(c);
+ }
+ save();
+ return dupes.length;
+}
 async function retryPending(){
  const ids=Object.keys(pending);
  if(!ids.length||!sb||!user)return 0;
@@ -672,14 +692,14 @@ async function pump(){
    if(el&&it.t0)el.textContent=Math.round((Date.now()-it.t0)/1000)+"s";
   },1000);
   const r=await scanAPI(shot.split(",")[1]);
-  const c=blank(nextSku());
+  const c=blank(nextSku(true));
   Object.assign(c,{
    cat:CATS.indexOf(r.cat)>-1?r.cat:"Other",
    year:r.year||"",set:r.set||"",subject:r.subject||"",num:r.num||"",
    variant:r.variant||"",serial:r.serial||"",
    graded:!!r.graded,grader:r.grader||"PSA",grade:r.grade||"",cert:r.cert||"",
    notes:r.note||"",review:r.confidence!=="high"});
-  S.cards.unshift(c);save();
+  S.cards.unshift(c);releaseSku(c.sku);save();
   it.state="done";it.cardId=c.id;it.conf=r.confidence;
   it.label=[r.year,r.set,r.subject].filter(Boolean).join(" ")||"Unidentified";
   clearInterval(window._tick);
@@ -1026,6 +1046,11 @@ function viewSetup(){
   <p class="note">These are on this device but not yet in the database. They won't appear on your other devices until they save.</p>
   <button class="btn wide" data-act="retry">Retry saving</button></div>`:""}
 
+ ${(()=>{const d=findSkuDupes();return d.length?`<div class="section">
+  <div class="sec-hd"><h2>Duplicate SKUs</h2><span>${d.length}</span></div>
+  <p class="note">${d.length} card${d.length===1?"":"s"} share a SKU with another. Renumbering gives each its own — photos and listings key off the SKU, so duplicates cause mix-ups when you sell.</p>
+  <button class="btn wide" data-act="fixsku">Renumber duplicate SKUs</button></div>`:"";})()}
+
  ${(()=>{const g=findDupes();return g.length?`<div class="section">
   <div class="sec-hd"><h2>Duplicates</h2><span>${g.length}</span></div>
   <p class="note">${g.length} card${g.length===1?"":"s"} appear more than once. Merging keeps the most complete record and folds in anything the others have.</p>
@@ -1198,10 +1223,23 @@ function toast(msg){
  const d=document.createElement("div");d.className="toast";d.textContent=msg;document.body.appendChild(d);
  setTimeout(()=>d.remove(),2600);
 }
-function nextSku(){
- const ns=S.cards.map(c=>parseInt(String(c.sku).replace(/\D/g,""),10)).filter(x=>!isNaN(x));
- return"C-"+String((ns.length?Math.max(...ns):0)+1).padStart(4,"0");
+let skuReserve={};
+function takenSkus(){
+ const t={};
+ S.cards.forEach(c=>{if(c.sku)t[String(c.sku).trim().toUpperCase()]=1;});
+ Object.keys(skuReserve).forEach(k=>{t[k]=1;});
+ return t;
 }
+function nextSku(reserve){
+ const taken=takenSkus();
+ const ns=Object.keys(taken).map(k=>parseInt(k.replace(/\D/g,""),10)).filter(x=>!isNaN(x));
+ let i=(ns.length?Math.max(...ns):0)+1;
+ let sku="C-"+String(i).padStart(4,"0");
+ while(taken[sku]){i++;sku="C-"+String(i).padStart(4,"0");}   // never hand out a number twice
+ if(reserve)skuReserve[sku]=1;
+ return sku;
+}
+function releaseSku(sku){delete skuReserve[String(sku||"").trim().toUpperCase()];}
 function bumpSku(sku){const m=String(sku).match(/^(.*?)(\d+)$/);
  return m?m[1]+String(parseInt(m[2],10)+1).padStart(m[2].length,"0"):"";}
 
@@ -1288,6 +1326,11 @@ document.addEventListener("click",async e=>{
   case"signout":await sb.auth.signOut();user=null;authToken=null;S.cards=[];
    localStorage.removeItem(CACHE);render();break;
   case"pull":await pullAll();render();toast("Refreshed");break;
+  case"fixsku":{
+   const k=findSkuDupes().length;
+   if(!k){toast("Every SKU is unique");break;}
+   const fixed=await fixSkuDupes();render();
+   toast("Renumbered "+fixed+" card"+(fixed===1?"":"s"));break;}
   case"dedupe":{
    const n0=findDupes().length;
    if(!n0){toast("No duplicates found");break;}
