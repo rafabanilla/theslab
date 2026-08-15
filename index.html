@@ -297,7 +297,7 @@ textarea.fld-i{resize:vertical}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="25";
+const VERSION="26";
 const CATS=["NBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90,nickname:""};
@@ -328,7 +328,7 @@ const SEED=[
 let S={cards:[],settings:{...DEF_SET}};
 let tab="scan", editing=null, confirmDel=false;
 let queue=[], scanning=false, storeInfo=null;
-let F={q:"",cat:"all",only:"all",sort:"value",limit:50};
+let F={q:"",cat:"all",only:"all",sort:"newest",limit:50};
 let photoCache={}, picTarget=null, deferredPrompt=null;
 
 function blank(sku){return{id:"c"+Date.now()+Math.random().toString(36).slice(2,6),sku:sku||"",cat:"NBA",
@@ -934,7 +934,11 @@ function viewCollection(){
   if(!F.q)return true;
   return (c.subject+" "+c.set+" "+c.year+" "+c.num+" "+c.variant+" "+c.sku+" "+c.notes).toLowerCase().includes(F.q.toLowerCase());
  });
- list.sort((a,b)=>F.sort==="value"?n(b.vRaw)-n(a.vRaw):F.sort==="year"?n(b.year)-n(a.year):
+ list.sort((a,b)=>
+  F.sort==="newest"?addedTime(b)-addedTime(a):
+  F.sort==="oldest"?addedTime(a)-addedTime(b):
+  F.sort==="value"?n(b.vRaw)-n(a.vRaw):
+  F.sort==="year"?n(b.year)-n(a.year):
   (a.subject||"").localeCompare(b.subject||""));
  const cats=["all",...new Set(S.cards.map(c=>c.cat))];
  window._visible=list;
@@ -942,7 +946,7 @@ function viewCollection(){
   <div class="chips">${cats.map(c=>`<button class="chip${F.cat===c?" on":""}" data-cat="${esc(c)}">${c==="all"?"All sports":esc(c)}</button>`).join("")}</div>
   <div class="chips">${[["all","Everything"],["stale","Stale prices"],["review","Needs review"],["raw","Raw"],["graded","Graded"],["unpriced","No price yet"],["sold","Sold"]]
    .map(([k,l])=>`<button class="chip${F.only===k?" on":""}" data-only="${k}">${l}</button>`).join("")}
-   <button class="chip alt" data-act="sort">Sort: ${F.sort}</button></div>
+   <button class="chip alt" data-act="sort">Sort: ${({newest:"newest scan",oldest:"oldest scan",value:"value",year:"card year",name:"player"})[F.sort]||F.sort}</button></div>
   <div class="count">${list.length} card${list.length===1?"":"s"}
    ${list.length&&list.some(c=>c.subject||c.set)?`<button class="mini" data-act="repriceview">refresh these prices</button>`:""}</div>`;
  if(!list.length)h+=`<div class="empty">
@@ -1330,7 +1334,8 @@ document.addEventListener("click",async e=>{
     const ok=await navigator.storage.persist();toast(ok?"Storage protected":"Browser declined — keep CSV backups");
     await measure();render();}break;
   case"new":editing=blank(nextSku());confirmDel=false;render();break;
-  case"sort":F.sort=F.sort==="value"?"year":F.sort==="year"?"name":"value";render();break;
+  case"sort":{const order=["newest","oldest","value","year","name"];
+   F.sort=order[(order.indexOf(F.sort)+1)%order.length];render();break;}
   case"more":F.limit+=50;render();break;
   case"cancel":editing=null;render();break;
   case"save":commit();editing=null;render();toast("Saved");break;
