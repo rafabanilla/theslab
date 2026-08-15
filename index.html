@@ -210,6 +210,8 @@ textarea.fld-i{resize:vertical}
 .trbtn{padding:7px 10px;border:1px solid var(--rule);background:var(--label);border-radius:2px;
  font-size:12px;color:var(--mute)}
 .trbtn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.ev-src{display:inline-block;font-family:var(--mono);font-size:10px;color:var(--red);
+ text-decoration:underline;margin:0 0 6px}
 .ev-path{font-family:var(--mono);font-size:10px;color:var(--mute);margin:-3px 0 7px;letter-spacing:.03em}
 .ev-path.free{color:var(--green);font-weight:600}
 .ev-guide{color:var(--gold);font-family:var(--body);font-size:11px}
@@ -327,7 +329,7 @@ textarea.fld-i{resize:vertical}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="39";
+const VERSION="40";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -916,6 +918,7 @@ async function rpump(){
   c.evidence=ev;
   c.pricePath=r.path||"model";
   c.directWhy=r.directWhy||"";
+  if(r.source&&/^https?:/.test(String(r.source)))c.srcUrl=r.source;
   c.pricedOn=new Date().toISOString().slice(0,10);
   c.lastMove=before&&got("current")?Math.round(n(c.vRaw)-before):0;
   if(r.note)c.notes=r.note;
@@ -1406,6 +1409,7 @@ function evidencePanel(c){
  return`<div class="ev">
   <div class="ev-hd">What this price is based on
    <span class="ev-when">${esc(ev.checkedOn||"")}</span></div>
+  ${c.srcUrl&&c.pricePath==="direct"?`<a class="ev-src" href="${esc(c.srcUrl)}" target="_blank" rel="noopener">see the page this came from</a>`:""}
   ${c.pricePath?`<div class="ev-path ${c.pricePath==="direct"?"free":""}">${
    c.pricePath==="direct"?"read straight from the guide — free"
    :c.pricePath==="direct+model"?"guide page plus a model lookup"
