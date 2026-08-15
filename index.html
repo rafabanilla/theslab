@@ -297,7 +297,7 @@ textarea.fld-i{resize:vertical}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="24";
+const VERSION="25";
 const CATS=["NBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90,nickname:""};
@@ -1185,6 +1185,8 @@ function lookupLinks(c){
    tcg?"https://www.pricecharting.com/search-products?type=prices&q="+e
       :"https://www.sportscardspro.com/search-products?q="+e],
   ["PSA prices","https://www.psacard.com/auctionprices"],
+  ...(c.graded&&c.cert&&String(c.grader).toUpperCase()==="PSA"
+   ?[["Verify cert","https://www.psacard.com/cert/"+encodeURIComponent(String(c.cert).replace(/\D/g,""))]]:[]),
   ["Google","https://www.google.com/search?q="+e],
  ];
  return`<div class="lookup">
