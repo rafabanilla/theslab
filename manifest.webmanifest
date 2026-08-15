@@ -1,7 +1,7 @@
 {
   "name": "The Slab — Card Inventory",
   "short_name": "The Slab",
-  "description": "Track your card collection, values, and grading candidates.",
+  "description": "Scan, price and track your card collection.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

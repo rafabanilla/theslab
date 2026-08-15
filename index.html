@@ -9,8 +9,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="The Slab">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="icon-192.png">
-<link rel="icon" href="icon-192.png">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -148,6 +149,14 @@ textarea.fld-i{resize:vertical}
 .empty{text-align:center;padding:50px 20px;color:var(--mute)}
 .note{font-size:12px;color:var(--mute);line-height:1.55;margin-bottom:12px}
 .note code{font-family:var(--mono);background:#DDE1E7;padding:1px 4px;font-size:11px}
+.foot{display:flex;align-items:center;justify-content:center;gap:7px;
+ max-width:820px;margin:8px auto 0;padding:16px 14px 26px;
+ border-top:1px solid var(--rule);color:var(--mute)}
+.foot-mark{width:13px;height:13px;flex-shrink:0;color:var(--ink);opacity:.75}
+.foot-name{font-family:var(--disp);font-size:10px;letter-spacing:.16em;color:var(--ink);opacity:.7}
+.foot-sep{opacity:.4;font-size:10px}
+.foot-ver,.foot-by{font-family:var(--mono);font-size:10px;letter-spacing:.04em}
+.foot-by{color:var(--red);opacity:.75}
 .diag{font-family:var(--mono);font-size:11px;line-height:1.6;background:var(--ink);color:#D6DAE0;
  padding:12px;border-radius:2px;overflow-x:auto;white-space:pre;margin-top:10px}
 .note.ok{color:var(--green);font-weight:500}
@@ -244,7 +253,7 @@ textarea.fld-i{resize:vertical}
 "use strict";
 /* ============ constants ============ */
 const KEY="theslab.v1";
-const VERSION="2026.08.14-boot-2";
+const VERSION="2026.08.15-brand-1";
 const CATS=["NBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90};
@@ -789,6 +798,19 @@ function render(){
    .map(([k,l])=>`<button class="tab${tab===k?" on":""}" data-tab="${k}">${l}</button>`).join("")}</nav>`;
  h+=repriceBanner();
  h+=tab==="scan"?viewScan():tab==="collection"?viewCollection():tab==="grading"?viewGrading():tab==="money"?viewMoney(st):viewSetup();
+ h+=`<footer class="foot">
+  <svg class="foot-mark" viewBox="0 0 64 64" aria-hidden="true">
+   <rect x="10" y="2" width="44" height="60" rx="8" fill="currentColor" opacity=".85"/>
+   <path d="M10 10a8 8 0 0 1 8-8h28a8 8 0 0 1 8 8v8.6H10z" fill="#9C7412"/>
+   <rect x="10" y="18.6" width="44" height="2.6" fill="#C8102E"/>
+   <rect x="17" y="26" width="30" height="30" rx="2" fill="#E7EAEE"/>
+  </svg>
+  <span class="foot-name">THE SLAB</span>
+  <span class="foot-sep">·</span>
+  <span class="foot-ver">build ${VERSION}</span>
+  <span class="foot-sep">·</span>
+  <span class="foot-by">raf1983</span>
+ </footer>`;
  if(tab==="collection")h+=`<button class="fab" data-act="new" aria-label="Add a card">+</button>`;
  if(editing)h+=viewSheet();
  document.getElementById("app").innerHTML=h;
