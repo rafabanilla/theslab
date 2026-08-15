@@ -297,7 +297,7 @@ textarea.fld-i{resize:vertical}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="29";
+const VERSION="30";
 const CATS=["NBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90,nickname:""};
@@ -832,7 +832,17 @@ async function rpump(){
   logPrice(c,r);
   rDone++;
   if(!n(r.totalComps))rThin++;
- }catch(e){rFail++;toast(e.message||"Refresh failed");}
+ }catch(e){
+  rFail++;
+  const msg=String(e&&e.message||e||"Refresh failed");
+  const card=S.cards.find(x=>x.id===id);
+  if(card){
+   card.evidence={error:msg,checkedOn:new Date().toISOString().slice(0,10)};
+   card.pricedOn=new Date().toISOString().slice(0,10);
+   save();pushCard(card);
+  }
+  toast(msg);
+ }
  rq.shift();rBusy=false;render();
  setTimeout(rpump,400);
 }
@@ -1107,6 +1117,7 @@ function viewSetup(){
   <p class="note">Checks each link in the chain separately, without spending any API credit.</p>
   <button class="btn wide" data-act="diag">Run connection test</button>
   <button class="btn ghost wide" data-act="pricetest">Test a price lookup</button>
+  <button class="btn ghost wide" data-act="pricetest2">Test pricing one of my cards</button>
   <p class="note">The price test runs one real lookup on a known card and prints the raw reply. Costs a few cents.</p>
   ${window._diag?`<pre class="diag">${esc(window._diag)}</pre>`:""}</div>
 
@@ -1217,6 +1228,9 @@ function lookupLinks(c){
 }
 function evidencePanel(c){
  const ev=c.evidence;
+ if(ev&&ev.error)return`<div class="ev"><div class="ev-hd">Pricing failed<span class="ev-when">${esc(ev.checkedOn||"")}</span></div>
+  <div class="ev-warn">${esc(ev.error)}</div>
+  <p class="note" style="margin:8px 0 0">Try the button above again, or use the lookup links below to price it by hand.</p></div>`;
  if(!ev)return`<div class="ev ev-empty">No pricing evidence yet. Tap the button above and it will record the individual sales it finds.</div>`;
  const list=[];
  ["current","psa9","psa10"].forEach(k=>{
@@ -1424,6 +1438,40 @@ document.addEventListener("click",async e=>{
   case"retry":{const k=Object.keys(pending).length;
    const ok=await retryPending();render();
    toast(ok?("Saved "+ok+" of "+k):"Still couldn't save — check Diagnostics");break;}
+  case"pricetest2":{
+   const target=S.cards.find(x=>x.status!=="sold"&&(x.subject||x.set));
+   if(!target){window._diag="No cards to test with.";render();break;}
+   const out=["client path test","card: "+[target.year,target.set,target.subject,
+     target.num?"#"+target.num:""].filter(Boolean).join(" "),
+    "vRaw before : "+JSON.stringify(target.vRaw),""];
+   window._diag=out.concat(["running…"]).join("\n");render();
+   const t0=Date.now();
+   try{
+    const r=await repriceAPI(target);
+    out.push("reply took  : "+Math.round((Date.now()-t0)/1000)+"s");
+    out.push("reply vRaw  : "+JSON.stringify(r.vRaw));
+    out.push("methods     : "+(r.methods?JSON.stringify(r.methods):"(missing)"));
+    const ev=r.evidence||null;
+    out.push("evidence?   : "+(ev?"yes":"NO - this is the problem"));
+    if(ev){
+     out.push("current med : "+JSON.stringify(ev.current&&ev.current.median));
+     const gotIt=ev.current&&n(ev.current.median)>0;
+     out.push("passes gate : "+(gotIt?"yes":"NO - value not applied"));
+     if(gotIt){
+      target.vRaw=n(r.vRaw);target.evidence=ev;
+      target.pricedOn=new Date().toISOString().slice(0,10);
+      save();
+      out.push("vRaw after  : "+JSON.stringify(target.vRaw));
+      try{await pushCard(target);out.push("saved to db : ok");}
+      catch(e2){out.push("saved to db : FAILED - "+(e2.message||e2));}
+      out.push("still pending after save: "+(pending[target.id]?"YES - write rejected":"no"));
+     }
+    }
+   }catch(e){
+    out.push("THREW after "+Math.round((Date.now()-t0)/1000)+"s");
+    out.push(String(e&&e.message||e));
+   }
+   window._diag=out.join("\n");render();break;}
   case"pricetest":{
    window._diag="running a real price lookup…";render();
    const probe={year:"1990",set:"Fleer",subject:"Michael Jordan",num:"26",variant:"",
