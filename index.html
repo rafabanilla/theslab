@@ -186,6 +186,8 @@ textarea.fld-i{resize:vertical}
 .lookup-a:active{background:var(--ink);color:#fff}
 .lookup-q{font-family:var(--mono);font-size:10px;color:var(--mute);margin:8px 0 0;line-height:1.5}
 .lookup-q code{background:#DDE1E7;padding:1px 4px}
+.ev-path{font-family:var(--mono);font-size:10px;color:var(--mute);margin:-3px 0 7px;letter-spacing:.03em}
+.ev-path.free{color:var(--green);font-weight:600}
 .ev-guide{color:var(--gold);font-family:var(--body);font-size:11px}
 .ev-est{color:var(--mute);font-family:var(--body);font-size:11px;font-style:italic}
 .ev-soft{opacity:.72}
@@ -301,7 +303,7 @@ textarea.fld-i{resize:vertical}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="33";
+const VERSION="34";
 const CATS=["NBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90,nickname:"",usage:null};
@@ -807,6 +809,7 @@ function tally(kind,u){
  const t=S.settings.usage||{in:0,out:0,searches:0,scans:0,prices:0};
  t.in=n(t.in)+n(u.in); t.out=n(t.out)+n(u.out); t.searches=n(t.searches)+n(u.searches);
  if(kind==="scan")t.scans=n(t.scans)+1; else t.prices=n(t.prices)+1;
+ if(kind==="direct")t.direct=n(t.direct)+1;
  S.settings.usage=t;
  save();
  clearTimeout(window._st);window._st=setTimeout(pushSettings,2000);
@@ -847,6 +850,7 @@ async function rpump(){
  try{
   const r=await repriceAPI(c0);
   tally("price",r.usage);
+  if(r.path==="direct")tally("direct",{in:0,out:0,searches:0});
   // A sync during those 20-odd seconds rebuilds S.cards from scratch, orphaning
   // the object we started with. Always write to whatever is on screen now.
   const c=S.cards.find(x=>x.id===id)||c0;
@@ -860,6 +864,7 @@ async function rpump(){
    if(got("psa10"))c.v10=n(r.v10);
   }
   c.evidence=ev;
+  c.pricePath=r.path||"model";
   c.pricedOn=new Date().toISOString().slice(0,10);
   c.lastMove=before&&got("current")?Math.round(n(c.vRaw)-before):0;
   if(r.note)c.notes=r.note;
@@ -1126,6 +1131,7 @@ function viewSetup(){
    <tr><td>Output tokens</td><td>${n(t.out).toLocaleString()}</td></tr>
    <tr><td>Search cost</td><td>${money4(n(t.searches)*RATE.search)}</td></tr>
    <tr><td>Token cost</td><td>${money4(n(t.in)*RATE.in+n(t.out)*RATE.out)}</td></tr>
+   <tr><td>Priced free (direct)</td><td>${n(t.direct||0)}${n(t.prices)?" of "+n(t.prices):""}</td></tr>
    <tr><td class="strong">Per card scanned</td><td class="strong">${money4(perCard)}</td></tr>
   </tbody></table>
   <p class="note">Measured from what the API actually reported, at ${"$"}2 per million input and ${"$"}10 per million output tokens, plus ${"$"}0.01 per web search. Counts only what this device has run.</p>
@@ -1298,6 +1304,10 @@ function evidencePanel(c){
  return`<div class="ev">
   <div class="ev-hd">What this price is based on
    <span class="ev-when">${esc(ev.checkedOn||"")}</span></div>
+  ${c.pricePath?`<div class="ev-path ${c.pricePath==="direct"?"free":""}">${
+   c.pricePath==="direct"?"read straight from the guide — free"
+   :c.pricePath==="direct+model"?"guide page plus a model lookup"
+   :"model lookup with web search"}</div>`:""}
   <table class="ev-tbl"><tbody>
    ${bucketRow("As it is now",ev.current)}
    ${c.graded?"":bucketRow("If PSA 9",ev.psa9)}
