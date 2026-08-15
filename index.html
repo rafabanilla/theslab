@@ -186,6 +186,14 @@ textarea.fld-i{resize:vertical}
 .lookup-a:active{background:var(--ink);color:#fff}
 .lookup-q{font-family:var(--mono);font-size:10px;color:var(--mute);margin:8px 0 0;line-height:1.5}
 .lookup-q code{background:#DDE1E7;padding:1px 4px}
+.trs{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.tr{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;
+ background:#DDE1E7;color:var(--mute);padding:2px 5px;border-radius:2px}
+.tr.hot{background:var(--ink);color:#fff}
+.trpick{display:flex;flex-wrap:wrap;gap:5px}
+.trbtn{padding:7px 10px;border:1px solid var(--rule);background:var(--label);border-radius:2px;
+ font-size:12px;color:var(--mute)}
+.trbtn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 .ev-path{font-family:var(--mono);font-size:10px;color:var(--mute);margin:-3px 0 7px;letter-spacing:.03em}
 .ev-path.free{color:var(--green);font-weight:600}
 .ev-guide{color:var(--gold);font-family:var(--body);font-size:11px}
@@ -303,9 +311,29 @@ textarea.fld-i{resize:vertical}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="34";
-const CATS=["NBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
+const VERSION="37";
+const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
+const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
+const TRAITS_TCG=["ex","v","vmax","vstar","gx","full-art","illustration-rare",
+ "special-illustration-rare","secret-rare","holo","reverse-holo"];
+const TRAIT_LABEL={numbered:"numbered",auto:"auto",relic:"patch/relic",rookie:"rookie",
+ "1st-edition":"1st ed",ex:"ex",v:"V",vmax:"VMAX",vstar:"VSTAR",gx:"GX","full-art":"full art",
+ "illustration-rare":"IR","special-illustration-rare":"SIR","secret-rare":"secret",
+ holo:"holo","reverse-holo":"reverse holo"};
+const isTCG=c=>["Pokemon","Magic","Yu-Gi-Oh","Other TCG"].indexOf(c&&c.cat)>-1;
+function traitList(c){
+ const raw=String((c&&c.traits)||"").toLowerCase();
+ const set=raw.split(/[,;]+/).map(s=>s.trim()).filter(Boolean);
+ // a serial number always means numbered, whatever the scan said
+ if(c&&c.serial&&set.indexOf("numbered")===-1)set.push("numbered");
+ return set.filter((v,i,a)=>a.indexOf(v)===i);
+}
+function setTrait(c,t,on){
+ const list=traitList(c).filter(x=>x!==t);
+ if(on)list.push(t);
+ c.traits=list.join(",");
+}
 const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90,nickname:"",usage:null};
 const CONF={low:{p10:.08,p9:.32},med:{p10:.22,p9:.45},high:{p10:.42,p9:.42}};
 
@@ -334,13 +362,13 @@ const SEED=[
 let S={cards:[],settings:{...DEF_SET}};
 let tab="scan", editing=null, confirmDel=false;
 let queue=[], scanning=false, storeInfo=null;
-let F={q:"",cat:"all",only:"all",sort:"newest",limit:50};
+let F={q:"",cat:"all",only:"all",trait:"",sort:"newest",limit:50};
 let photoCache={}, picTarget=null, deferredPrompt=null;
 
 function blank(sku){return{id:"c"+Date.now()+Math.random().toString(36).slice(2,6),sku:sku||"",cat:"NBA",
  year:"",set:"",subject:"",num:"",variant:"",serial:"",qty:1,graded:false,grader:"PSA",grade:"",cert:"",
  conf:"med",photoF:"",photoB:"",cost:"",acqDate:"",source:"",vRaw:"",v9:"",v10:"",pricedOn:"",
- status:"owned",listPrice:"",salePrice:"",saleDate:"",salePlatform:"",loc:"",notes:"",review:false,
+ status:"owned",listPrice:"",salePrice:"",saleDate:"",salePlatform:"",loc:"",notes:"",review:false,traits:"",
  lastMove:0,evidence:null,addedAt:new Date().toISOString()};}
 
 function seed(){return SEED.map(r=>{const c=blank(r[0]);c.id=r[0];c.sku=r[0];c.year=r[1];c.set=r[2];
@@ -411,7 +439,7 @@ const MAP={sku:"sku",cat:"cat",year:"year",set:"set_name",subject:"subject",num:
  v9:"v9",v10:"v10",pricedOn:"priced_on",lastMove:"last_move",status:"status",
  listPrice:"list_price",salePrice:"sale_price",saleDate:"sale_date",salePlatform:"sale_platform",
  loc:"loc",notes:"notes",review:"review",photoF:"photo_f",photoB:"photo_b",
- evidence:"evidence"};
+ evidence:"evidence",traits:"traits"};
 const NUMCOL=["qty","cost","v_raw","v9","v10","last_move","list_price","sale_price"];
 
 function toRow(c){
@@ -518,6 +546,9 @@ async function pushMany(list){
   setSync("unsaved: "+Object.keys(pending).length);}
 }
 function dupKey(c){
+ const cert=String(c.cert||"").replace(/\D/g,"");
+ // A cert number is definitive: same cert means the same physical slab.
+ if(cert.length>=6)return "cert:"+cert;
  return [c.year,c.set,c.subject,c.num,c.variant,c.graded?c.grader+c.grade:"raw"]
   .map(x=>String(x||"").trim().toLowerCase()).join("|");
 }
@@ -534,6 +565,9 @@ function score(c){
  let s=0;
  ["vRaw","v9","v10","cost","photoF","photoB","cert","notes","acqDate"].forEach(k=>{if(c[k])s++;});
  if(c.pricedOn)s+=2;
+ // a price read from the card's own grade tier beats one derived from raw
+ if(c.evidence&&c.evidence.current&&!/ungraded/i.test(String(c.evidence.current.guides&&
+   c.evidence.current.guides[0]&&c.evidence.current.guides[0].source||"")))s+=3;
  return s;
 }
 async function mergeDupes(){
@@ -728,7 +762,7 @@ async function pump(){
   Object.assign(c,{
    cat:CATS.indexOf(r.cat)>-1?r.cat:"Other",
    year:r.year||"",set:r.set||"",subject:r.subject||"",num:r.num||"",
-   variant:r.variant||"",serial:r.serial||"",
+   variant:r.variant||"",serial:r.serial||"",traits:r.traits||"",
    graded:!!r.graded,grader:r.grader||"PSA",grade:r.grade||"",cert:r.cert||"",
    notes:r.note||"",review:r.confidence!=="high"});
   S.cards.unshift(c);releaseSku(c.sku);save();
@@ -993,6 +1027,7 @@ function viewCollection(){
   if(F.only==="unpriced"&&n(c.vRaw))return false;
   if(F.only==="review"&&!c.review)return false;
   if(F.only==="stale"&&!isStale(c))return false;
+  if(F.trait&&traitList(c).indexOf(F.trait)===-1)return false;
   if(F.only==="sold"&&c.status!=="sold")return false;
   if(F.only!=="sold"&&c.status==="sold")return false;
   if(!F.q)return true;
@@ -1010,7 +1045,12 @@ function viewCollection(){
   <div class="chips">${cats.map(c=>`<button class="chip${F.cat===c?" on":""}" data-cat="${esc(c)}">${c==="all"?"All sports":esc(c)}</button>`).join("")}</div>
   <div class="chips">${[["all","Everything"],["stale","Stale prices"],["review","Needs review"],["raw","Raw"],["graded","Graded"],["unpriced","No price yet"],["sold","Sold"]]
    .map(([k,l])=>`<button class="chip${F.only===k?" on":""}" data-only="${k}">${l}</button>`).join("")}
-   <button class="chip alt" data-act="sort">Sort: ${({newest:"newest scan",oldest:"oldest scan",value:"value",year:"card year",name:"name A-Z"})[F.sort]||F.sort}</button></div>
+   ${(()=>{const seen={};S.cards.forEach(c=>traitList(c).forEach(t=>{seen[t]=(seen[t]||0)+1;}));
+    const ks=Object.keys(seen).sort((a,b)=>seen[b]-seen[a]);
+    return ks.length?`</div><div class="chips">
+     <button class="chip${!F.trait?" on":""}" data-trait="">All types</button>
+     ${ks.map(t=>`<button class="chip${F.trait===t?" on":""}" data-trait="${esc(t)}">${esc(TRAIT_LABEL[t]||t)} ${seen[t]}</button>`).join("")}`:"";})()}
+  <button class="chip alt" data-act="sort">Sort: ${({newest:"newest scan",oldest:"oldest scan",value:"value",year:"card year",name:"name A-Z"})[F.sort]||F.sort}</button></div>
   <div class="count">${list.length} card${list.length===1?"":"s"}
    ${list.length&&list.some(c=>c.subject||c.set)?`<button class="mini" data-act="repriceview">refresh these prices</button>`:""}</div>`;
  if(!list.length)h+=`<div class="empty">
@@ -1030,6 +1070,8 @@ function slabRow(c){
    <div class="sl"><span class="sl-yr">${esc(c.year||"—")}</span><span class="sl-set">${esc(c.set||"Unset")}</span></div>
    <h3 class="sn">${esc(c.subject||"Untitled card")}</h3>
    <div class="sm">${c.num?`<span>#${esc(c.num)}</span>`:""}${c.variant?`<span>${esc(c.variant)}</span>`:""}${c.serial?`<span>/${esc(c.serial)}</span>`:""}${n(c.qty)>1?`<span>×${esc(c.qty)}</span>`:""}</div>
+   ${traitList(c).length?`<div class="trs">${traitList(c).slice(0,4).map(t=>
+     `<span class="tr${t==="auto"||t==="relic"||t==="numbered"?" hot":""}">${esc(TRAIT_LABEL[t]||t)}</span>`).join("")}</div>`:""}
    <div class="sf"><span class="sku">${esc(c.sku)}</span><span class="val">${n(c.vRaw)?money(c.vRaw):"no price"}${
  c.evidence&&c.evidence.current?`<span class="val-n">${c.evidence.current.method==="sales"?" n="+c.evidence.current.n
  :c.evidence.current.method==="guide"?" guide"
@@ -1209,6 +1251,11 @@ function viewSheet(){
   ${fld("Player or character","subject",c.subject,"Michael Jordan")}
   <div class="row2">${fld("Card no.","num",c.num,"23")}${fld("Serial /","serial",c.serial,"99")}</div>
   ${fld("Parallel or insert","variant",c.variant,"Refractor, Holo, 1st Edition")}
+ <label class="fld"><span class="fld-l">What kind of card is it</span>
+  <div class="trpick">${(isTCG(c)?TRAITS_ANY.concat(TRAITS_TCG):TRAITS_ANY).map(t=>{
+   const on=traitList(c).indexOf(t)>-1;
+   return `<button class="trbtn${on?" on":""}" data-toggletrait="${t}">${esc(TRAIT_LABEL[t]||t)}</button>`;
+  }).join("")}</div></label>
   <div class="row2">${fld("Quantity","qty",c.qty,"","f","number")}${fld("Stored in","loc",c.loc,"Box A")}</div>
   <div class="divider">Condition</div>
   <div class="toggle"><button class="tg${!c.graded?" on":""}" data-graded="0">Raw</button>
@@ -1359,9 +1406,9 @@ const FULLCOLS=["sku","cat","year","set","subject","num","variant","serial","qty
  "saleDate","salePlatform","loc","photoF","photoB","notes"];
 function csvEsc(v){const s=String(v==null?"":v);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
 function exportCSV(kind){
- const cols=kind==="list"?["sku","title","price","qty","photo_front","photo_back","category","condition","collection"]:FULLCOLS;
+ const cols=kind==="list"?["sku","title","price","qty","photo_front","photo_back","category","condition","collection","traits"]:FULLCOLS;
  const rows=S.cards.map(c=>kind==="list"
-  ?[c.sku,title(c),n(c.listPrice)||n(c.vRaw),c.qty,photoURL(c,"F"),photoURL(c,"B"),c.cat,c.graded?c.grader+" "+c.grade:"Ungraded",S.settings.nickname||""]
+  ?[c.sku,title(c),n(c.listPrice)||n(c.vRaw),c.qty,photoURL(c,"F"),photoURL(c,"B"),c.cat,c.graded?c.grader+" "+c.grade:"Ungraded",S.settings.nickname||"",traitList(c).join(" ")]
   :cols.map(k=>k==="photoF"?photoURL(c,"F"):k==="photoB"?photoURL(c,"B"):c[k]));
  const csv=[cols.join(","),...rows.map(r=>r.map(csvEsc).join(","))].join("\n");
  const a=document.createElement("a");
@@ -1410,7 +1457,7 @@ function bumpSku(sku){const m=String(sku).match(/^(.*?)(\d+)$/);
 
 /* ============ events ============ */
 document.addEventListener("click",async e=>{
- const t=e.target.closest("[data-tab],[data-act],[data-open],[data-cat],[data-only],[data-graded],[data-pic],[data-clear]");
+ const t=e.target.closest("[data-tab],[data-act],[data-open],[data-cat],[data-only],[data-trait],[data-graded],[data-pic],[data-clear],[data-toggletrait]");
  if(!t)return;
  const d=t.dataset;
  if(d.clear!==undefined&&d.clear){e.stopPropagation();
@@ -1421,7 +1468,11 @@ document.addEventListener("click",async e=>{
  if(d.open){editing=JSON.parse(JSON.stringify(S.cards.find(c=>c.id===d.open)));confirmDel=false;render();return;}
  if(d.cat!==undefined&&d.cat){F.cat=d.cat;F.limit=50;render();return;}
  if(d.only){F.only=d.only;F.limit=50;render();return;}
+ if(d.trait!==undefined){F.trait=d.trait;F.limit=50;render();return;}
  if(d.graded!==undefined&&editing){editing.graded=d.graded==="1";render();return;}
+ if(d.toggletrait&&editing){
+  setTrait(editing,d.toggletrait,traitList(editing).indexOf(d.toggletrait)===-1);
+  render();return;}
  switch(d.act){
   case"shoot":document.getElementById("scancam").click();break;
   case"pick":document.getElementById("scanlib").click();break;
