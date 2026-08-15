@@ -169,6 +169,16 @@ textarea.fld-i{resize:vertical}
 .ev-b{width:52px;flex-shrink:0;color:var(--mute)}
 .ev-d{width:76px;flex-shrink:0;color:var(--mute)}
 .ev-s{color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lookup{border:1px dashed var(--rule);border-radius:2px;padding:10px 12px;margin:0 0 12px}
+.lookup-hd{font-family:var(--disp);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+ color:var(--mute);margin-bottom:7px}
+.lookup-row{display:flex;flex-wrap:wrap;gap:6px}
+.lookup-a{flex:1 1 auto;text-align:center;padding:7px 9px;border:1px solid var(--rule);
+ border-radius:2px;background:var(--label);font-size:11.5px;color:var(--ink);text-decoration:none;
+ white-space:nowrap}
+.lookup-a:active{background:var(--ink);color:#fff}
+.lookup-q{font-family:var(--mono);font-size:10px;color:var(--mute);margin:8px 0 0;line-height:1.5}
+.lookup-q code{background:#DDE1E7;padding:1px 4px}
 .ev-guide{color:var(--gold);font-family:var(--body);font-size:11px}
 .ev-note{background:#EDF1F5;border-left:3px solid var(--mute);padding:9px 10px;margin-top:9px;
  font-size:11.5px;line-height:1.5;color:var(--mute)}
@@ -279,7 +289,7 @@ textarea.fld-i{resize:vertical}
 "use strict";
 /* ============ constants ============ */
 const KEY="theslab.v1";
-const VERSION="2026.08.15-sources-1";
+const VERSION="2026.08.15-lookup-1";
 const CATS=["NBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90};
@@ -1105,6 +1115,7 @@ function viewSheet(){
  if(!c.graded)h+=`<div class="row2">${fld("Value if PSA 9","v9",c.v9,"","f","number")}${fld("Value if PSA 10","v10",c.v10,"","f","number")}</div>`;
  h+=fld("Prices checked on","pricedOn",c.pricedOn,"","f","date");
  h+=evidencePanel(c);
+ h+=lookupLinks(c);
  h+=`<button class="btn ghost wide" data-act="repriceone">${daysSince(c.pricedOn)>900?"Look up the price":`Refresh price (${daysSince(c.pricedOn)} days old)`}</button>`;
  if(c.lastMove)h+=`<div class="note" style="margin-top:6px">Last refresh moved this ${c.lastMove>0?"up":"down"} ${money(Math.abs(c.lastMove))}.</div>`;
  if(g&&g.verdict!=="unpriced"){
@@ -1141,6 +1152,26 @@ function bucketRow(label,b){
   <td class="ev-med">${money(b.median)}</td>
   <td>${basis}</td>
   <td>${b.low===b.high?"":money(b.low)+"–"+money(b.high)}</td></tr>`;
+}
+function lookupLinks(c){
+ const q=[c.year,c.set,c.subject,c.num?"#"+c.num:"",c.variant].filter(Boolean).join(" ");
+ if(!q.trim())return"";
+ const e=encodeURIComponent(q);
+ const tcg=["Pokemon","Magic","Yu-Gi-Oh","Other TCG"].indexOf(c.cat)>-1;
+ const links=[
+  ["eBay sold","https://www.ebay.com/sch/i.html?_nkw="+e+"&LH_Sold=1&LH_Complete=1"],
+  [tcg?"PriceCharting":"SportsCardsPro",
+   tcg?"https://www.pricecharting.com/search-products?type=prices&q="+e
+      :"https://www.sportscardspro.com/search-products?q="+e],
+  ["PSA prices","https://www.psacard.com/auctionprices"],
+  ["Google","https://www.google.com/search?q="+e],
+ ];
+ return`<div class="lookup">
+  <div class="lookup-hd">Check it yourself</div>
+  <div class="lookup-row">${links.map(([t,u])=>
+   `<a class="lookup-a" href="${u}" target="_blank" rel="noopener">${t}</a>`).join("")}</div>
+  <p class="lookup-q">Searching: <code>${esc(q)}</code></p>
+ </div>`;
 }
 function evidencePanel(c){
  const ev=c.evidence;
