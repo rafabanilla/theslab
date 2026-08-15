@@ -297,7 +297,7 @@ textarea.fld-i{resize:vertical}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="28";
+const VERSION="29";
 const CATS=["NBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90,nickname:""};
@@ -1106,6 +1106,8 @@ function viewSetup(){
  <div class="section"><div class="sec-hd"><h2>Diagnostics</h2></div>
   <p class="note">Checks each link in the chain separately, without spending any API credit.</p>
   <button class="btn wide" data-act="diag">Run connection test</button>
+  <button class="btn ghost wide" data-act="pricetest">Test a price lookup</button>
+  <p class="note">The price test runs one real lookup on a known card and prints the raw reply. Costs a few cents.</p>
   ${window._diag?`<pre class="diag">${esc(window._diag)}</pre>`:""}</div>
 
  <div class="section"><div class="sec-hd"><h2>App version</h2></div>
@@ -1422,6 +1424,29 @@ document.addEventListener("click",async e=>{
   case"retry":{const k=Object.keys(pending).length;
    const ok=await retryPending();render();
    toast(ok?("Saved "+ok+" of "+k):"Still couldn't save — check Diagnostics");break;}
+  case"pricetest":{
+   window._diag="running a real price lookup…";render();
+   const probe={year:"1990",set:"Fleer",subject:"Michael Jordan",num:"26",variant:"",
+    serial:"",cat:"NBA",graded:false,grader:"PSA",grade:""};
+   const out=["price lookup test","card: 1990 Fleer Michael Jordan #26 (raw)",""];
+   const t0=Date.now();
+   try{
+    const r=await edgeCall("reprice",{card:probe},140000);
+    out.push("took        : "+Math.round((Date.now()-t0)/1000)+"s");
+    out.push("vRaw        : "+JSON.stringify(r.vRaw));
+    out.push("v9 / v10    : "+JSON.stringify(r.v9)+" / "+JSON.stringify(r.v10));
+    out.push("confidence  : "+(r.confidence||"-"));
+    out.push("totalComps  : "+(r.totalComps===undefined?"(field missing)":r.totalComps));
+    out.push("methods     : "+(r.methods?JSON.stringify(r.methods):"(field missing - old function)"));
+    out.push("note        : "+(r.note||"(none)"));
+    out.push("");
+    out.push("raw reply:");
+    out.push(JSON.stringify(r).slice(0,1400));
+   }catch(e){
+    out.push("FAILED after "+Math.round((Date.now()-t0)/1000)+"s");
+    out.push(String(e.message||e));
+   }
+   window._diag=out.join("\n");render();break;}
   case"diag":{
    window._diag="running…";render();
    const out=[];
