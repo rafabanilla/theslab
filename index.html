@@ -57,7 +57,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .pane{padding:16px 14px 40px;max-width:820px;margin:0 auto}
 .search{width:100%;padding:12px 14px;border:1px solid var(--rule);border-radius:2px;background:var(--label);
   font-size:16px;font-family:inherit;color:var(--ink)}
-.fbar{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:10px}
+.fbar{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:10px}
 .fpill{display:flex;align-items:center;justify-content:center;gap:3px;padding:9px 4px;
  border:1px solid var(--rule);background:var(--label);border-radius:2px;font-size:11.5px;
  color:var(--mute);white-space:nowrap;overflow:hidden}
@@ -214,6 +214,10 @@ textarea.fld-i{resize:vertical}
  text-decoration:underline;margin:0 0 6px}
 .ev-path{font-family:var(--mono);font-size:10px;color:var(--mute);margin:-3px 0 7px;letter-spacing:.03em}
 .ev-path.free{color:var(--green);font-weight:600}
+.ev-tier{font-family:var(--body);font-size:10.5px;color:var(--mute)}
+.ev-crack{font-size:11.5px;line-height:1.5;color:var(--mute);background:#EDF1F5;
+ border-left:3px solid var(--rule);padding:8px 10px;margin:8px 0 0}
+.ev-crack.warn{background:#FDF0D9;border-left-color:var(--gold);color:#5C4409}
 .ev-guide{color:var(--gold);font-family:var(--body);font-size:11px}
 .ev-est{color:var(--mute);font-family:var(--body);font-size:11px;font-style:italic}
 .ev-soft{opacity:.72}
@@ -335,7 +339,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="41";
+const VERSION="44";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -358,8 +362,25 @@ function setTrait(c,t,on){
  if(on)list.push(t);
  c.traits=list.join(",");
 }
-const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90,nickname:"",usage:null};
+const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90,nickname:"",gradeWith:"PSA",usage:null};
 const CONF={low:{p10:.08,p9:.32},med:{p10:.22,p9:.45},high:{p10:.42,p9:.42}};
+/* Where a submission actually lands, by how the card looks. Real grading
+   outcomes spread across 7 through 10 — treating everything below 9 as
+   "roughly raw" understates rough cards and overstates clean ones. */
+const LADDER={
+ low: {g7:.20,g8:.34,g9:.32,g95:.06,g10:.04,below:.04},
+ med: {g7:.06,g8:.22,g9:.44,g95:.14,g10:.12,below:.02},
+ high:{g7:.02,g8:.09,g9:.34,g95:.23,g10:.31,below:.01},
+};
+const TEN_KEY={PSA:"psa10",BGS:"bgs10",CGC:"cgc10",SGC:"sgc10"};
+function tierValues(c){
+ const t=c.evidence&&c.evidence.tiers;
+ if(!t)return null;
+ const tenKey=TEN_KEY[String(S.settings.gradeWith||"PSA").toUpperCase()]||"psa10";
+ const v={g7:n(t.g7),g8:n(t.g8),g9:n(t.g9),g95:n(t.g95),g10:n(t[tenKey])||n(t.psa10)};
+ // a ladder with nothing on it is no use
+ return (v.g9||v.g10||v.g8)?v:null;
+}
 
 const SEED=[
 ["MJ-001","1991","Hoops","Michael Jordan","5","MVP","GCC","10",12,"est"],
@@ -386,7 +407,7 @@ const SEED=[
 let S={cards:[],settings:{...DEF_SET}};
 let tab="scan", editing=null, confirmDel=false;
 let queue=[], scanning=false, storeInfo=null;
-let F={q:"",cats:[],flags:[],traits:[],sort:"newest",limit:50,open:""};
+let F={q:"",cats:[],flags:[],traits:[],minVal:0,sort:"newest",limit:50,open:""};
 let photoCache={}, picTarget=null, deferredPrompt=null;
 
 function blank(sku){return{id:"c"+Date.now()+Math.random().toString(36).slice(2,6),sku:sku||"",cat:"NBA",
@@ -413,6 +434,23 @@ function gradeCall(c){
  if(c.graded)return null;
  const raw=n(c.vRaw),v9=n(c.v9),v10=n(c.v10);
  if(!raw&&!v9&&!v10)return{verdict:"unpriced",net:0};
+
+ // Preferred: the full published ladder, 7 through 10, for the grader you use.
+ const tv=tierValues(c);
+ if(tv){
+  const L=LADDER[c.conf]||LADDER.med;
+  const fill=(x,fb)=>x||fb;
+  const g8=fill(tv.g8,raw*1.4), g7=fill(tv.g7,raw*1.1);
+  const g9=fill(tv.g9,g8*1.5), g95=fill(tv.g95,g9*1.6), g10=fill(tv.g10,g9*3);
+  const ev=L.g7*g7+L.g8*g8+L.g9*g9+L.g95*g95+L.g10*g10+L.below*raw
+    -n(S.settings.gradingCost);
+  const net=ev-raw;
+  let verdict="skip";
+  if(net>n(S.settings.gradingCost)&&net>raw*.5)verdict="grade";
+  else if(net>0)verdict="maybe";
+  return{verdict,net,ladder:{g7,g8,g9,g95,g10},ev};
+ }
+
  if(!v9&&!v10)return{verdict:"nograded",net:0};
  const p=CONF[c.conf]||CONF.med, pLow=Math.max(0,1-p.p10-p.p9);
  const ev=p.p10*v10+p.p9*v9+pLow*raw*1.15-n(S.settings.gradingCost);
@@ -890,6 +928,21 @@ async function repriceAPI(c){
   serial:c.serial,cat:c.cat,graded:c.graded,grader:c.grader,grade:c.grade};
  return edgeCall("reprice",{card},140000);
 }
+function avgLookupCost(){
+ const t=S.settings.usage;
+ if(t&&n(t.prices)>=2)return spend(t)/n(t.prices);
+ return 0.15;   // before there is history, assume the model path
+}
+function confirmSpend(count){
+ if(count<5)return true;
+ const each=avgLookupCost();
+ const est=each*count;
+ return window.confirm(
+  "Refresh "+count+" card"+(count===1?"":"s")+"?\n\n"+
+  "Roughly "+money4(est)+" at your measured average of "+money4(each)+" each.\n"+
+  "Cards the free lookup can price cost nothing, so the real figure is usually lower.\n\n"+
+  "This bills to your Anthropic account.");
+}
 function queueReprice(cards){
  const ids=cards.map(c=>c.id).filter(id=>rq.indexOf(id)===-1);
  if(!ids.length){toast("Nothing to refresh");return;}
@@ -1051,6 +1104,7 @@ function viewCollection(){
  let list=S.cards.filter(c=>{
   if(!wantSold&&c.status==="sold")return false;
   if(F.cats.length&&F.cats.indexOf(c.cat)===-1)return false;
+  if(F.minVal&&n(c.vRaw)<F.minVal)return false;
   if(F.traits.length){
    const tl=traitList(c);
    if(!F.traits.some(t=>tl.indexOf(t)>-1))return false;
@@ -1094,13 +1148,14 @@ function viewCollection(){
    <span class="fcar">${F.open===key?"\u25B4":"\u25BE"}</span></button>`;
  const box=(kind,val,label,on,count)=>`<button class="fopt${on?" on":""}"
    data-pick="${kind}" data-val="${esc(val)}">${label}${count?` <span class="foptn">${count}</span>`:""}</button>`;
- const anyFilter=F.cats.length||F.traits.length||F.flags.length;
+ const anyFilter=F.cats.length||F.traits.length||F.flags.length||F.minVal;
 
  let h=`<div class="pane"><input class="search" id="q" placeholder="Search name, set, year, SKU" value="${esc(F.q)}">
   <div class="fbar">
    ${pill("cat","Category",F.cats.length)}
    ${traitKeys.length?pill("trait","Card type",F.traits.length):""}
    ${pill("flag","Show",F.flags.length)}
+   ${pill("val","Value",F.minVal?1:0)}
    ${pill("sort","Sort",0)}
   </div>
   ${F.open==="cat"?`<div class="fpanel">${catKeys.map(k=>
@@ -1109,11 +1164,15 @@ function viewCollection(){
     box("trait",k,esc(TRAIT_LABEL[k]||k),F.traits.indexOf(k)>-1,traitCounts[k])).join("")}</div>`:""}
   ${F.open==="flag"?`<div class="fpanel">${FLAGS.map(([k,l])=>
     box("flag",k,l,F.flags.indexOf(k)>-1,0)).join("")}</div>`:""}
+  ${F.open==="val"?`<div class="fpanel">${[[0,"Any value"],[10,"$10 and up"],[25,"$25 and up"],
+    [50,"$50 and up"],[100,"$100 and up"],[250,"$250 and up"]].map(([v,l])=>
+    box("val",String(v),l,F.minVal===v,0)).join("")}</div>`:""}
   ${F.open==="sort"?`<div class="fpanel">${SORTS.map(([k,l])=>
     box("sort",k,l,F.sort===k,0)).join("")}</div>`:""}
   ${anyFilter?`<div class="fclear"><button data-act="clearfilters">Clear all filters</button></div>`:""}
   <div class="count">${list.length} card${list.length===1?"":"s"}
-   ${list.length&&list.some(c=>c.subject||c.set)?`<button class="mini" data-act="repriceview">refresh these prices</button>`:""}</div>`;
+   ${list.length&&list.some(c=>c.subject||c.set)?`<button class="mini" data-act="repriceview">refresh these prices${
+    list.length>=5?` (~${money4(avgLookupCost()*list.length)})`:""}</button>`:""}</div>`;
  if(!list.length)h+=`<div class="empty">
   <p>${S.cards.length?"Nothing matches those filters.":"No cards yet. Scan one, or add it by hand."}</p>
   ${S.cards.length&&(F.cats.length||F.traits.length||F.flags.length)?`<button class="btn ghost" data-act="clearfilters">Clear filters</button>`:""}
@@ -1252,6 +1311,11 @@ function viewSetup(){
   <p class="note">Refreshing skips the photo, so it costs roughly 1-3 cents a card. Worth doing monthly on your best cards, quarterly on the rest, and always right before you list something.</p></div>
 
  <div class="section"><div class="sec-hd"><h2>Numbers</h2></div>
+  ${(()=>{const opts=["PSA","BGS","SGC","CGC"];
+   return `<label class="fld"><span class="fld-l">Who you send cards to</span>
+   <select class="fld-i" data-set="gradeWith">${opts.map(o=>
+    `<option value="${o}"${S.settings.gradeWith===o?" selected":""}>${o}</option>`).join("")}</select></label>
+   <p class="note">Grading projections use this grader's 10 price when the guide publishes one.</p>`;})()}
   ${fld("Grading cost per card (incl. shipping)","gradingCost",S.settings.gradingCost,"","set","number")}
   ${fld("Selling fees %","feePct",S.settings.feePct,"","set","number")}
   ${fld("Currency symbol","currency",S.settings.currency,"$","set")}</div>
@@ -1419,6 +1483,12 @@ function evidencePanel(c){
  return`<div class="ev">
   <div class="ev-hd">What this price is based on
    <span class="ev-when">${esc(ev.checkedOn||"")}</span></div>
+  ${(()=>{const t=c.evidence&&c.evidence.tiers;
+   if(!c.graded||!t||!n(t.ungraded))return"";
+   const slab=n(c.vRaw), raw=n(t.ungraded);
+   if(!slab)return"";
+   if(raw>=slab)return `<div class="ev-crack warn">The raw copy trades at ${money(raw)} — at or above this slab. The grade is adding nothing.</div>`;
+   return `<div class="ev-crack">Raw copies trade at ${money(raw)}, so the grade is worth about ${money(slab-raw)}.</div>`;})()}
   ${c.srcUrl&&c.pricePath==="direct"?`<a class="ev-src" href="${esc(c.srcUrl)}" target="_blank" rel="noopener">see the page this came from</a>`:""}
   ${c.pricePath?`<div class="ev-path ${c.pricePath==="direct"?"free":""}">${
    c.pricePath==="direct"?"read straight from the guide — free"
@@ -1427,6 +1497,13 @@ function evidencePanel(c){
    c.directWhy?` · free lookup missed: ${esc(c.directWhy)}`:""}</div>`:""}
   <table class="ev-tbl"><tbody>
    ${bucketRow("As it is now",ev.current)}
+  ${(()=>{const t=ev.tiers;if(!t)return"";
+   const rows=[["Raw / ungraded",t.ungraded],["Grade 7",t.g7],["Grade 8",t.g8],
+    ["Grade 9",t.g9],["Grade 9.5",t.g95],["PSA 10",t.psa10],["BGS 10",t.bgs10],
+    ["CGC 10",t.cgc10],["SGC 10",t.sgc10]]
+    .filter(([,v])=>n(v)>0);
+   return rows.length?rows.map(([l,v])=>
+    `<tr><td>${l}</td><td class="ev-med">${money(v)}</td><td colspan="2" class="ev-tier">published tier</td></tr>`).join(""):"";})()}
    ${c.graded?"":bucketRow("If PSA 9",ev.psa9)}
    ${c.graded?"":bucketRow("If PSA 10",ev.psa10)}
   </tbody></table>
@@ -1543,6 +1620,7 @@ document.addEventListener("click",async e=>{
  if(d.pick){
   const v=d.val;
   if(d.pick==="sort"){F.sort=v;F.open="";}
+  else if(d.pick==="val"){F.minVal=n(v);F.open="";}
   else{
    const key=d.pick==="cat"?"cats":d.pick==="trait"?"traits":"flags";
    const i=F[key].indexOf(v);
@@ -1561,7 +1639,7 @@ document.addEventListener("click",async e=>{
     const ok=await navigator.storage.persist();toast(ok?"Storage protected":"Browser declined — keep CSV backups");
     await measure();render();}break;
   case"new":editing=blank(nextSku());confirmDel=false;render();break;
-  case"clearfilters":F.cats=[];F.traits=[];F.flags=[];F.open="";F.limit=50;render();break;
+  case"clearfilters":F.cats=[];F.traits=[];F.flags=[];F.minVal=0;F.open="";F.limit=50;render();break;
   case"more":F.limit+=50;render();break;
   case"cancel":editing=null;render();break;
   case"save":commit();editing=null;render();toast("Saved");break;
@@ -1754,9 +1832,12 @@ document.addEventListener("click",async e=>{
    if(!add.length){toast("They're already here");break;}
    S.cards=add.concat(S.cards);pushMany(add);render();toast(`Added ${add.length} cards`);break;}
   case"repriceone":if(editing){commit();queueReprice([S.cards.find(c=>c.id===editing.id)]);editing=null;render();}break;
-  case"repriceview":queueReprice((window._visible||[]).filter(c=>c.subject||c.set));break;
-  case"repricestale":queueReprice(S.cards.filter(isStale));break;
-  case"priceunpriced":queueReprice(S.cards.filter(c=>c.status!=="sold"&&!n(c.vRaw)&&(c.subject||c.set)));break;
+  case"repriceview":{const set=(window._visible||[]).filter(c=>c.subject||c.set);
+   if(confirmSpend(set.length))queueReprice(set);break;}
+  case"repricestale":{const set=S.cards.filter(isStale);
+   if(confirmSpend(set.length))queueReprice(set);break;}
+  case"priceunpriced":{const set=S.cards.filter(c=>c.status!=="sold"&&!n(c.vRaw)&&(c.subject||c.set));
+   if(confirmSpend(set.length))queueReprice(set);break;}
   case"stopreprice":rq=[];toast("Stopped");render();break;
   case"exp-full":exportCSV("full");break;
   case"exp-list":exportCSV("list");break;
