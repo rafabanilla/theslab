@@ -172,6 +172,10 @@ textarea.fld-i{resize:vertical}
 .ev-b{width:52px;flex-shrink:0;color:var(--mute)}
 .ev-d{width:76px;flex-shrink:0;color:var(--mute)}
 .ev-s{color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.confbox{background:#fff;border:1px solid var(--red);border-left:4px solid var(--red);
+ padding:13px;margin-top:10px;font-size:13px;line-height:1.5;border-radius:2px}
+.confrow{display:flex;gap:8px;margin-top:11px}
+.confrow .btn{flex:1}
 .lookup{border:1px dashed var(--rule);border-radius:2px;padding:10px 12px;margin:0 0 12px}
 .lookup-hd{font-family:var(--disp);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
  color:var(--mute);margin-bottom:7px}
@@ -297,7 +301,7 @@ textarea.fld-i{resize:vertical}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="31";
+const VERSION="32";
 const CATS=["NBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90,nickname:""};
@@ -741,6 +745,15 @@ async function pump(){
  clearTimeout(guard);
  clearInterval(window._tick);
  if(scanning){scanning=false;render();pump();}
+ // once nothing is waiting, tidy finished rows away and leave failures visible
+ if(!queue.some(q=>q.state==="waiting"||q.state==="reading")){
+  clearTimeout(window._qclear);
+  window._qclear=setTimeout(()=>{
+   if(queue.some(q=>q.state==="waiting"||q.state==="reading"))return;
+   const failed=queue.filter(q=>q.state==="failed");
+   if(failed.length!==queue.length){queue=failed;render();}
+  },4000);
+ }
 }
 function viewScan(){
  const pend=queue.filter(q=>q.state==="waiting"||q.state==="reading").length;
@@ -761,7 +774,7 @@ function viewScan(){
     `<span class="bad">${esc(q.err)}</span>`}</div></div>
    ${q.state==="done"?`<span class="qdot ${q.conf==="high"?"ok":"warn"}"></span>`:""}
   </div>`).join("");
-  if(!pend)h+=`<button class="btn ghost wide" data-act="clearq">Clear queue</button>`;
+  if(!pend)h+=`<button class="btn ghost wide" data-act="clearq">Clear ${done?"finished":"queue"}</button>`;
   h+=`</div>`;
  }
  h+=`<div class="tips">
@@ -973,11 +986,11 @@ function viewCollection(){
   (a.subject||"").localeCompare(b.subject||""));
  const cats=["all",...new Set(S.cards.map(c=>c.cat))];
  window._visible=list;
- let h=`<div class="pane"><input class="search" id="q" placeholder="Search player, set, year, SKU" value="${esc(F.q)}">
+ let h=`<div class="pane"><input class="search" id="q" placeholder="Search name, set, year, SKU" value="${esc(F.q)}">
   <div class="chips">${cats.map(c=>`<button class="chip${F.cat===c?" on":""}" data-cat="${esc(c)}">${c==="all"?"All sports":esc(c)}</button>`).join("")}</div>
   <div class="chips">${[["all","Everything"],["stale","Stale prices"],["review","Needs review"],["raw","Raw"],["graded","Graded"],["unpriced","No price yet"],["sold","Sold"]]
    .map(([k,l])=>`<button class="chip${F.only===k?" on":""}" data-only="${k}">${l}</button>`).join("")}
-   <button class="chip alt" data-act="sort">Sort: ${({newest:"newest scan",oldest:"oldest scan",value:"value",year:"card year",name:"player"})[F.sort]||F.sort}</button></div>
+   <button class="chip alt" data-act="sort">Sort: ${({newest:"newest scan",oldest:"oldest scan",value:"value",year:"card year",name:"name A-Z"})[F.sort]||F.sort}</button></div>
   <div class="count">${list.length} card${list.length===1?"":"s"}
    ${list.length&&list.some(c=>c.subject||c.set)?`<button class="mini" data-act="repriceview">refresh these prices</button>`:""}</div>`;
  if(!list.length)h+=`<div class="empty">
@@ -1192,10 +1205,11 @@ function viewSheet(){
   ${fld("Notes","notes",c.notes,"","f","area")}
   <div class="lt"><span>Listing title</span><code>${esc(title(c))}</code></div>
   <button class="btn wide" data-act="save-next">Save and add another</button>`;
- h+=confirmDel?`<div style="background:#fff;border:1px solid var(--red);padding:12px;margin-top:10px;font-size:13px;border-radius:2px">
-   Delete ${esc(c.sku||"this card")} for good?<div style="display:flex;gap:8px;margin-top:10px">
-   <button class="btn ghost" style="flex:1" data-act="nodel">Keep</button>
-   <button class="btn danger" style="flex:1" data-act="del">Delete</button></div></div>`
+ h+=confirmDel?`<div class="confbox" id="confbox">
+   Delete ${esc(c.sku||"this card")} for good? This cannot be undone.
+   <div class="confrow">
+    <button class="btn ghost" data-act="nodel">Keep</button>
+    <button class="btn danger" data-act="del">Delete</button></div></div>`
   :`<button class="btn danger wide" data-act="askdel">Delete this card</button>`;
  return h+`</div></div></div>`;
 }
@@ -1379,7 +1393,10 @@ document.addEventListener("click",async e=>{
   case"save-next":{const prev=commit();
    editing={...blank(bumpSku(prev.sku)||nextSku()),cat:prev.cat,year:prev.year,set:prev.set,
     source:prev.source,loc:prev.loc,acqDate:prev.acqDate};confirmDel=false;render();toast("Saved");break;}
-  case"askdel":confirmDel=true;render();break;
+  case"askdel":confirmDel=true;render();
+   setTimeout(()=>{const b=document.getElementById("confbox");
+    if(b&&b.scrollIntoView)b.scrollIntoView({block:"center",behavior:"smooth"});},60);
+   break;
   case"nodel":confirmDel=false;render();break;
   case"del":{const gone=editing.id;
    await removePhoto(gone,"F");await removePhoto(gone,"B");
