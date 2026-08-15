@@ -297,7 +297,7 @@ textarea.fld-i{resize:vertical}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="30";
+const VERSION="31";
 const CATS=["NBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90,nickname:""};
@@ -458,8 +458,10 @@ async function rest(path,opts,ms,label){
  try{return await r.json();}catch(_){return null;}
 }
 
-async function pullAll(){
+async function pullAll(force){
  if(!sb||!user)return;
+ // A rebuild mid-queue orphans the card being worked on. Wait for quiet.
+ if(!force&&(rq.length||scanning)){setSync("sync deferred");return;}
  setSync("syncing");
  try{
   const data=await rest("/rest/v1/cards?select=*&order=updated_at.desc",
@@ -728,9 +730,11 @@ async function pump(){
   clearInterval(window._tick);
   render();
   // storage and sync run in the background — a slow upload must never stall the queue
-  raced(uploadPhoto(c.id,"F",shot),45000,"photo upload")
-   .then(u=>{c.photoF=u;return raced(pushCard(c),20000,"save");})
-   .catch(()=>{setSync("photo failed");return raced(pushCard(c),20000,"save").catch(()=>{});})
+  const cid=c.id;
+  const live=()=>S.cards.find(x=>x.id===cid)||c;
+  raced(uploadPhoto(cid,"F",shot),45000,"photo upload")
+   .then(u=>{const cur=live();cur.photoF=u;return raced(pushCard(cur),20000,"save");})
+   .catch(()=>{setSync("photo failed");return raced(pushCard(live()),20000,"save").catch(()=>{});})
    .then(()=>render());
   if(c.subject||c.set)queueReprice([c]);
  }catch(e){if(it.state!=="failed"){it.state="failed";it.err=e.message||String(e);}}
@@ -805,15 +809,19 @@ function queueReprice(cards){
 }
 async function rpump(){
  if(rBusy)return;
+ if(!rq.length&&!scanning){setTimeout(()=>{if(!rq.length&&!scanning)pullAll().then(render);},1200);}
  if(!rq.length){if(rDone||rFail){
   toast(`Refreshed ${rDone}${rThin?", "+rThin+" with no sales found":""}${rFail?", "+rFail+" failed":""}`);
   rDone=0;rFail=0;rThin=0;render();}return;}
  rBusy=true;
  const id=rq[0];
- const c=S.cards.find(x=>x.id===id);
- if(!c){rq.shift();rBusy=false;return rpump();}
+ const c0=S.cards.find(x=>x.id===id);
+ if(!c0){rq.shift();rBusy=false;return rpump();}
  try{
-  const r=await repriceAPI(c);
+  const r=await repriceAPI(c0);
+  // A sync during those 20-odd seconds rebuilds S.cards from scratch, orphaning
+  // the object we started with. Always write to whatever is on screen now.
+  const c=S.cards.find(x=>x.id===id)||c0;
   const before=n(c.vRaw);
   const ev=r.evidence||null;
   const got=(b)=>ev&&ev[b]&&n(ev[b].median)>0;
