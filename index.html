@@ -40,6 +40,9 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .wm-1{font-weight:400;opacity:.55;margin-right:6px}
 .wm-2{font-weight:600}
 .save{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;opacity:.6}
+.hdr-right{display:flex;align-items:baseline;gap:10px;min-width:0}
+.collname{font-family:var(--disp);font-size:11px;letter-spacing:.11em;color:#fff;opacity:.55;
+ white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:44vw}
 .ticker{display:flex;margin-top:12px;border-top:1px solid rgba(255,255,255,.16)}
 .tick{flex:1;padding:9px 4px 11px;border-right:1px solid rgba(255,255,255,.12)}
 .tick:last-child{border-right:none}
@@ -293,10 +296,11 @@ textarea.fld-i{resize:vertical}
 "use strict";
 /* ============ constants ============ */
 const KEY="theslab.v1";
-const VERSION="2026.08.15-estimate-1";
+// Increment by one on every build. Nothing else — the number is the whole point.
+const VERSION="24";
 const CATS=["NBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
-const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90};
+const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90,nickname:""};
 const CONF={low:{p10:.08,p9:.32},med:{p10:.22,p9:.45},high:{p10:.42,p9:.42}};
 
 const SEED=[
@@ -880,7 +884,10 @@ function render(){
    </svg>
    <span class="wordmark"><span class="wm-1">THE</span><span class="wm-2">SLAB</span></span>
   </div>
-  <span class="save" id="saveflag"></span></div>
+  <div class="hdr-right">
+   <span class="save" id="saveflag"></span>
+   ${S.settings.nickname?`<span class="collname">${esc(S.settings.nickname)}</span>`:""}
+  </div></div>
   <div class="ticker">
    ${tick("cards",st.owned.length)}${tick("value",money(st.value))}
    ${tick("cost",money(st.cost))}${tick("grade now",st.cands.length,st.cands.length>0)}
@@ -1028,6 +1035,10 @@ function viewSetup(){
  <div class="section"><div class="sec-hd"><h2>Photos</h2></div>
   <p class="note">Open any card and tap Front or Back to shoot it. Photos upload to your Supabase project and get real public URLs, so the listing export carries links eBay and Whatnot can load directly. Nothing to configure.</p></div>
 
+ <div class="section"><div class="sec-hd"><h2>Collection</h2></div>
+  <p class="note">Shows in the top right, and on the listing sheet when you export.</p>
+  ${fld("Collection nickname","nickname",S.settings.nickname,"Raf's Collection","set")}</div>
+
  <div class="section"><div class="sec-hd"><h2>Account</h2></div>
   <p class="note">Signed in as <b>${esc(user?user.email:"")}</b>. Cards and photos sync to your Supabase project, so any device you sign in from shows the same collection.</p>
   <button class="btn ghost wide" data-act="pull">Refresh from the database</button>
@@ -1081,7 +1092,7 @@ function viewSetup(){
   ${window._diag?`<pre class="diag">${esc(window._diag)}</pre>`:""}</div>
 
  <div class="section"><div class="sec-hd"><h2>App version</h2></div>
-  <p class="note">Running build <b>${VERSION}</b>. If that isn't the build you just uploaded, you're on a cached copy.</p>
+  <p class="note">Running build <b>${VERSION}</b>. Each upload increments it by one — if the number hasn't moved, you're on a cached copy.</p>
   <button class="btn wide" data-act="hardrefresh">Clear cache and reload</button></div>
 
  <div class="section"><div class="sec-hd"><h2>This app</h2></div>
@@ -1246,9 +1257,9 @@ const FULLCOLS=["sku","cat","year","set","subject","num","variant","serial","qty
  "saleDate","salePlatform","loc","photoF","photoB","notes"];
 function csvEsc(v){const s=String(v==null?"":v);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
 function exportCSV(kind){
- const cols=kind==="list"?["sku","title","price","qty","photo_front","photo_back","category","condition"]:FULLCOLS;
+ const cols=kind==="list"?["sku","title","price","qty","photo_front","photo_back","category","condition","collection"]:FULLCOLS;
  const rows=S.cards.map(c=>kind==="list"
-  ?[c.sku,title(c),n(c.listPrice)||n(c.vRaw),c.qty,photoURL(c,"F"),photoURL(c,"B"),c.cat,c.graded?c.grader+" "+c.grade:"Ungraded"]
+  ?[c.sku,title(c),n(c.listPrice)||n(c.vRaw),c.qty,photoURL(c,"F"),photoURL(c,"B"),c.cat,c.graded?c.grader+" "+c.grade:"Ungraded",S.settings.nickname||""]
   :cols.map(k=>k==="photoF"?photoURL(c,"F"):k==="photoB"?photoURL(c,"B"):c[k]));
  const csv=[cols.join(","),...rows.map(r=>r.map(csvEsc).join(","))].join("\n");
  const a=document.createElement("a");
