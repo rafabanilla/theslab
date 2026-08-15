@@ -301,10 +301,10 @@ textarea.fld-i{resize:vertical}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="32";
+const VERSION="33";
 const CATS=["NBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
-const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90,nickname:""};
+const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90,nickname:"",usage:null};
 const CONF={low:{p10:.08,p9:.32},med:{p10:.22,p9:.45},high:{p10:.42,p9:.42}};
 
 const SEED=[
@@ -721,6 +721,7 @@ async function pump(){
    if(el&&it.t0)el.textContent=Math.round((Date.now()-it.t0)/1000)+"s";
   },1000);
   const r=await scanAPI(shot.split(",")[1]);
+  tally("scan",r.usage);
   const c=blank(nextSku(true));
   Object.assign(c,{
    cat:CATS.indexOf(r.cat)>-1?r.cat:"Other",
@@ -798,6 +799,19 @@ function addedTime(c){
  if(c.acqDate){const t=Date.parse(c.acqDate);if(!isNaN(t))return t;}
  return 0;
 }
+/* Claude Sonnet pricing, USD per million tokens, plus web search per call. */
+const RATE={in:2/1e6, out:10/1e6, search:0.01};
+function spend(u){return n(u.in)*RATE.in + n(u.out)*RATE.out + n(u.searches)*RATE.search;}
+function tally(kind,u){
+ if(!u)return;
+ const t=S.settings.usage||{in:0,out:0,searches:0,scans:0,prices:0};
+ t.in=n(t.in)+n(u.in); t.out=n(t.out)+n(u.out); t.searches=n(t.searches)+n(u.searches);
+ if(kind==="scan")t.scans=n(t.scans)+1; else t.prices=n(t.prices)+1;
+ S.settings.usage=t;
+ save();
+ clearTimeout(window._st);window._st=setTimeout(pushSettings,2000);
+}
+function money4(v){return S.settings.currency+(Math.round(v*100)/100).toFixed(2);}
 function daysSince(d){
  if(!d)return 9999;
  const t=Date.parse(d);if(isNaN(t))return 9999;
@@ -832,6 +846,7 @@ async function rpump(){
  if(!c0){rq.shift();rBusy=false;return rpump();}
  try{
   const r=await repriceAPI(c0);
+  tally("price",r.usage);
   // A sync during those 20-odd seconds rebuilds S.cards from scratch, orphaning
   // the object we started with. Always write to whatever is on screen now.
   const c=S.cards.find(x=>x.id===id)||c0;
@@ -1095,6 +1110,26 @@ function viewSetup(){
  <div class="section"><div class="sec-hd"><h2>Starter data</h2></div>
   <p class="note">The 18 graded slabs from your original list, with researched values. Adds any that aren't already here — it won't duplicate.</p>
   <button class="btn ghost wide" data-act="seed">Load the 18 graded slabs</button></div>
+
+ ${(()=>{const t=S.settings.usage;
+  if(!t||(!n(t.scans)&&!n(t.prices)))return `<div class="section"><div class="sec-hd"><h2>Spend</h2></div>
+   <p class="note">Nothing recorded yet. Every scan and price lookup from here on gets counted.</p></div>`;
+  const total=spend(t), calls=n(t.scans)+n(t.prices);
+  const perCard=n(t.scans)?total/n(t.scans):0;
+  const perPrice=n(t.prices)?(n(t.out)*RATE.out+n(t.searches)*RATE.search+n(t.in)*RATE.in)/calls:0;
+  return `<div class="section"><div class="sec-hd"><h2>Spend</h2><span>${money4(total)}</span></div>
+  <table class="tbl"><tbody>
+   <tr><td>Cards scanned</td><td>${n(t.scans)}</td></tr>
+   <tr><td>Price lookups</td><td>${n(t.prices)}</td></tr>
+   <tr><td>Web searches</td><td>${n(t.searches)}${n(t.prices)?" ("+(n(t.searches)/n(t.prices)).toFixed(1)+" per lookup)":""}</td></tr>
+   <tr><td>Input tokens</td><td>${n(t.in).toLocaleString()}</td></tr>
+   <tr><td>Output tokens</td><td>${n(t.out).toLocaleString()}</td></tr>
+   <tr><td>Search cost</td><td>${money4(n(t.searches)*RATE.search)}</td></tr>
+   <tr><td>Token cost</td><td>${money4(n(t.in)*RATE.in+n(t.out)*RATE.out)}</td></tr>
+   <tr><td class="strong">Per card scanned</td><td class="strong">${money4(perCard)}</td></tr>
+  </tbody></table>
+  <p class="note">Measured from what the API actually reported, at ${"$"}2 per million input and ${"$"}10 per million output tokens, plus ${"$"}0.01 per web search. Counts only what this device has run.</p>
+  <button class="btn ghost wide" data-act="resetusage">Reset the counter</button></div>`;})()}
 
  <div class="section"><div class="sec-hd"><h2>Prices</h2></div>
   ${(()=>{const st=S.cards.filter(isStale);const un=S.cards.filter(c=>c.status!=="sold"&&!n(c.vRaw)&&(c.subject||c.set));
@@ -1460,6 +1495,8 @@ document.addEventListener("click",async e=>{
    if(!n0){toast("No duplicates found");break;}
    const removed=await mergeDupes();render();
    toast("Merged "+n0+" group"+(n0===1?"":"s")+", removed "+removed);break;}
+  case"resetusage":S.settings.usage={in:0,out:0,searches:0,scans:0,prices:0};
+   save();pushSettings();render();toast("Counter reset");break;
   case"retry":{const k=Object.keys(pending).length;
    const ok=await retryPending();render();
    toast(ok?("Saved "+ok+" of "+k):"Still couldn't save — check Diagnostics");break;}
