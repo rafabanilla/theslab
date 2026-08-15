@@ -297,7 +297,7 @@ textarea.fld-i{resize:vertical}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="26";
+const VERSION="27";
 const CATS=["NBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90,nickname:""};
@@ -334,7 +334,8 @@ let photoCache={}, picTarget=null, deferredPrompt=null;
 function blank(sku){return{id:"c"+Date.now()+Math.random().toString(36).slice(2,6),sku:sku||"",cat:"NBA",
  year:"",set:"",subject:"",num:"",variant:"",serial:"",qty:1,graded:false,grader:"PSA",grade:"",cert:"",
  conf:"med",photoF:"",photoB:"",cost:"",acqDate:"",source:"",vRaw:"",v9:"",v10:"",pricedOn:"",
- status:"owned",listPrice:"",salePrice:"",saleDate:"",salePlatform:"",loc:"",notes:"",review:false,lastMove:0};}
+ status:"owned",listPrice:"",salePrice:"",saleDate:"",salePlatform:"",loc:"",notes:"",review:false,
+ lastMove:0,evidence:null,addedAt:new Date().toISOString()};}
 
 function seed(){return SEED.map(r=>{const c=blank(r[0]);c.id=r[0];c.sku=r[0];c.year=r[1];c.set=r[2];
  c.subject=r[3];c.num=r[4];c.variant=r[5];c.graded=true;c.grader=r[6];c.grade=r[7];c.vRaw=r[8];
@@ -404,7 +405,7 @@ const MAP={sku:"sku",cat:"cat",year:"year",set:"set_name",subject:"subject",num:
  v9:"v9",v10:"v10",pricedOn:"priced_on",lastMove:"last_move",status:"status",
  listPrice:"list_price",salePrice:"sale_price",saleDate:"sale_date",salePlatform:"sale_platform",
  loc:"loc",notes:"notes",review:"review",photoF:"photo_f",photoB:"photo_b",
- evidence:"evidence"};
+ evidence:"evidence",addedAt:"added_at"};
 const NUMCOL=["qty","cost","v_raw","v9","v10","last_move","list_price","sale_price"];
 
 function toRow(c){
@@ -768,6 +769,13 @@ function viewScan(){
 
 
 /* ============ price refresh ============ */
+function addedTime(c){
+ if(c&&c.addedAt){const t=Date.parse(c.addedAt);if(!isNaN(t))return t;}
+ const m=String((c&&c.id)||"").match(/^[ci](\d{13})/);   // scanned ids embed their creation time
+ if(m)return parseInt(m[1],10);
+ if(c&&c.pricedOn){const t=Date.parse(c.pricedOn);if(!isNaN(t))return t;}
+ return 0;
+}
 function daysSince(d){
  if(!d)return 9999;
  const t=Date.parse(d);if(isNaN(t))return 9999;
