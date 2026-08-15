@@ -237,6 +237,12 @@ textarea.fld-i{resize:vertical}
 .note.ok{color:var(--green);font-weight:500}
 
 .sheet-wrap{position:fixed;inset:0;background:rgba(21,23,27,.5);z-index:50;display:flex;align-items:flex-end}
+body.zoomed .sheet-wrap{position:absolute;top:0;left:0;right:0;bottom:auto;min-height:100vh;align-items:flex-start}
+body.zoomed .sheet{max-height:none}
+body.zoomed .sheet-body{overflow-y:visible;max-height:none}
+body.zoomed .hdr,body.zoomed .tabs{position:static}
+.sheet-foot{display:flex;gap:8px;margin:18px 0 4px;padding-top:14px;border-top:1px solid var(--rule)}
+.sheet-foot .btn{flex:1}
 .sheet{background:var(--paper);width:100%;max-height:94vh;display:flex;flex-direction:column;
   border-radius:6px 6px 0 0;overflow:hidden;max-width:820px;margin:0 auto}
 .sheet-hd{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;
@@ -329,7 +335,7 @@ textarea.fld-i{resize:vertical}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="40";
+const VERSION="41";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -1295,7 +1301,7 @@ function viewSetup(){
 
 function viewSheet(){
  const c=editing, g=gradeCall(c);
- let h=`<div class="sheet-wrap"><div class="sheet">
+ let h=`<div class="sheet-wrap"><div class="sheet" data-sheet="1">
   <div class="sheet-hd"><button class="x" data-act="cancel">Cancel</button>
   <span class="sheet-t">${esc(c.sku||"New card")}</span>
   <button class="x go" data-act="save">Save</button></div><div class="sheet-body">
@@ -1349,6 +1355,10 @@ function viewSheet(){
   ${fld("Front photo URL","photoF",c.photoF,"fills in when you shoot it")}
   ${fld("Back photo URL","photoB",c.photoB,"fills in when you shoot it")}
   ${fld("Notes","notes",c.notes,"","f","area")}
+  <div class="sheet-foot">
+   <button class="btn ghost" data-act="cancel">Cancel</button>
+   <button class="btn" data-act="save">Save</button>
+  </div>
   <div class="lt"><span>Listing title</span><code>${esc(title(c))}</code></div>
   <button class="btn wide" data-act="save-next">Save and add another</button>`;
  h+=confirmDel?`<div class="confbox" id="confbox">
@@ -1517,6 +1527,9 @@ function bumpSku(sku){const m=String(sku).match(/^(.*?)(\d+)$/);
 
 /* ============ events ============ */
 document.addEventListener("click",async e=>{
+ // a tap on the dim area outside the sheet closes it
+ if(editing&&e.target&&e.target.classList&&e.target.classList.contains("sheet-wrap")){
+  editing=null;render();return;}
  const t=e.target.closest("[data-tab],[data-act],[data-open],[data-panel],[data-pick],[data-graded],[data-pic],[data-clear],[data-toggletrait]");
  if(!t)return;
  const d=t.dataset;
@@ -1793,6 +1806,22 @@ document.addEventListener("change",async e=>{
 });
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;});
 window.addEventListener("resize",positionTabs);
+
+/* Pinch-zoom traps position:fixed overlays on iOS — the header can end up
+   off-screen with no page scroll to reach it. When zoomed, unpin the sheet
+   so normal scrolling works and every control stays reachable. */
+(function watchZoom(){
+ const vv=window.visualViewport;
+ if(!vv)return;
+ const apply=()=>{
+  const b=document.body;
+  if(!b||!b.classList)return;
+  if(vv.scale>1.05)b.classList.add("zoomed"); else b.classList.remove("zoomed");
+ };
+ vv.addEventListener("resize",apply);
+ vv.addEventListener("scroll",apply);
+ apply();
+})();
 
 async function measure(){
  if(!navigator.storage||!navigator.storage.estimate)return;
