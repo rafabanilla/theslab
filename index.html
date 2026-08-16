@@ -318,6 +318,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 .tips p{font-size:12px;line-height:1.6;color:var(--mute);margin:0 0 9px}
 .tips b{color:var(--ink)}
 .flag.warn{color:#5C4409;background:#FDF0D9;font-weight:600}
+.flag.ok{color:var(--green);background:#E4F2EA;font-weight:600}
 @media (min-width:700px){
   .pane{padding:22px}
   .sheet-wrap{align-items:center;padding:20px}
@@ -339,7 +340,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="50";
+const VERSION="52";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -416,7 +417,7 @@ let photoCache={}, picTarget=null, deferredPrompt=null;
 function blank(sku){return{id:"c"+Date.now()+Math.random().toString(36).slice(2,6),sku:sku||"",cat:"NBA",
  year:"",set:"",subject:"",num:"",variant:"",serial:"",qty:1,graded:false,grader:"PSA",grade:"",cert:"",
  conf:"med",photoF:"",photoB:"",cost:"",acqDate:"",source:"",vRaw:"",v9:"",v10:"",pricedOn:"",
- status:"owned",listPrice:"",salePrice:"",saleDate:"",salePlatform:"",loc:"",notes:"",review:false,traits:"",
+ status:"owned",listPrice:"",salePrice:"",saleDate:"",salePlatform:"",loc:"",notes:"",review:false,verified:false,traits:"",
  lastMove:0,evidence:null,addedAt:new Date().toISOString()};}
 
 function seed(){return SEED.map(r=>{const c=blank(r[0]);c.id=r[0];c.sku=r[0];c.year=r[1];c.set=r[2];
@@ -508,7 +509,7 @@ const MAP={sku:"sku",cat:"cat",year:"year",set:"set_name",subject:"subject",num:
  v9:"v9",v10:"v10",pricedOn:"priced_on",lastMove:"last_move",status:"status",
  listPrice:"list_price",salePrice:"sale_price",saleDate:"sale_date",salePlatform:"sale_platform",
  loc:"loc",notes:"notes",review:"review",photoF:"photo_f",photoB:"photo_b",
- evidence:"evidence",traits:"traits"};
+ evidence:"evidence",traits:"traits",verified:"verified"};
 const NUMCOL=["qty","cost","v_raw","v9","v10","last_move","list_price","sale_price"];
 
 function toRow(c){
@@ -518,7 +519,7 @@ function toRow(c){
   const col=MAP[k];
   if(col==="evidence"){r[col]=v||null;continue;}
   if(NUMCOL.indexOf(col)>-1)v=(v===""||v==null)?null:n(v);
-  else if(col==="graded"||col==="review")v=!!v;
+  else if(col==="graded"||col==="review"||col==="verified")v=!!v;
   else v=(v===""||v==null)?null:String(v);
   r[col]=v;
  }
@@ -531,7 +532,7 @@ function fromRow(r){
   if(k==="evidence"){c.evidence=v||null;continue;}
   c[k]=(v==null)?(k==="graded"||k==="review"?false:k==="qty"?1:""):v;
  }
- c.graded=!!r.graded;c.review=!!r.review;
+ c.graded=!!r.graded;c.review=!!r.review;c.verified=!!r.verified;
  c.addedAt="";        // not a stored column — order comes from the id timestamp
  return c;
 }
@@ -950,8 +951,11 @@ function confirmSpend(count){
   "Cards the free lookup can price cost nothing, so the real figure is usually lower.\n\n"+
   "This bills to your Anthropic account.");
 }
-function queueReprice(cards){
- const ids=cards.map(c=>c.id).filter(id=>rq.indexOf(id)===-1);
+function queueReprice(cards,includeVerified){
+ const skipped=includeVerified?[]:cards.filter(c=>c.verified);
+ const list=includeVerified?cards:cards.filter(c=>!c.verified);
+ if(skipped.length)toast("Skipped "+skipped.length+" you have checked yourself");
+ const ids=list.map(c=>c.id).filter(id=>rq.indexOf(id)===-1);
  if(!ids.length){toast("Nothing to refresh");return;}
  rq=rq.concat(ids);rDone=0;rFail=0;render();rpump();
 }
@@ -985,7 +989,10 @@ async function repriceOne(id){
   c.pricedOn=new Date().toISOString().slice(0,10);
   c.lastMove=before&&got("current")?Math.round(n(c.vRaw)-before):0;
   if(r.note)c.notes=r.note;
-  c.review=(r.confidence!=="high");
+  // Flag only what a person actually needs to look at. Medium confidence is
+  // the normal case; flagging it put a warning on 71% of the collection and
+  // made the flag worthless.
+  c.review=(r.confidence==="low")||(ev&&ev.current&&ev.current.method==="none");
   await pushCard(c);
   logPrice(c,r);
   rDone++;
@@ -1135,6 +1142,7 @@ function viewCollection(){
     f==="raw"?!c.graded:
     f==="graded"?!!c.graded:
     f==="review"?!!c.review:
+    f==="verified"?!!c.verified:
     f==="stale"?isStale(c):
     f==="unpriced"?!n(c.vRaw):false);
    if(!hit)return false;
@@ -1152,7 +1160,7 @@ function viewCollection(){
  const cats=["all",...new Set(S.cards.map(c=>c.cat))];
  window._visible=list;
 
- const FLAGS=[["raw","Raw"],["graded","Graded"],["unpriced","No price yet"],
+ const FLAGS=[["raw","Raw"],["graded","Graded"],["verified","Checked by you"],["unpriced","No price yet"],
   ["stale","Stale prices"],["review","Needs review"],["sold","Sold"]];
  const SORTS=[["newest","Newest scan"],["oldest","Oldest scan"],["value","Value"],
   ["year","Card year"],["name","Name A-Z"]];
@@ -1218,6 +1226,7 @@ function slabRow(c){
  c.evidence&&c.evidence.current?`<span class="val-n">${c.evidence.current.method==="sales"?" n="+c.evidence.current.n
  :c.evidence.current.method==="guide"?" guide"
  :c.evidence.current.method==="estimate"?" est":" no data"}</span>`:""}</span></div>
+   ${c.verified?`<div class="flag ok">Checked by you</div>`:""}
    ${c.review?`<div class="flag warn">Check this one</div>`:""}
    ${g&&g.verdict==="grade"?`<div class="flag">Grade this — +${money(g.net)} expected</div>`:""}
    ${g&&g.verdict==="maybe"?`<div class="flag soft">Borderline grading call</div>`:""}
@@ -1289,9 +1298,9 @@ function viewMoney(st){
     <td>${c.pricePath==="direct"?"guide":(c.evidence&&c.evidence.current&&c.evidence.current.method==="estimate")?"estimate":"model"}</td></tr>`).join("")}
    </tbody></table></div>`;})();
 
- const ev={sales:{n:0,v:0},guide:{n:0,v:0},estimate:{n:0,v:0},none:{n:0,v:0}};
+ const ev={verified:{n:0,v:0},sales:{n:0,v:0},guide:{n:0,v:0},estimate:{n:0,v:0},none:{n:0,v:0}};
  st.owned.forEach(c=>{
-  const meth=(c.evidence&&c.evidence.current&&c.evidence.current.method)||"none";
+  const meth=c.verified?"verified":((c.evidence&&c.evidence.current&&c.evidence.current.method)||"none");
   const k=ev[meth]?meth:"none";
   ev[k].n++; ev[k].v+=n(c.vRaw)*(n(c.qty)||1);
  });
@@ -1299,9 +1308,9 @@ function viewMoney(st){
  const soft=Math.round((ev.estimate.v+ev.none.v)/evTotal*100);
  h+=`<div class="section"><div class="sec-hd"><h2>How solid is this</h2><span>${soft}% soft</span></div>
   <table class="tbl"><thead><tr><th>Basis</th><th>Cards</th><th>Value</th><th>Share</th></tr></thead><tbody>
-  ${[["sales","Observed sales"],["guide","Market guide"],["estimate","Estimated"],["none","No evidence"]]
+  ${[["verified","Checked by you"],["sales","Observed sales"],["guide","Market guide"],["estimate","Estimated"],["none","No evidence"]]
    .map(([k,l])=>`<tr><td>${l}</td><td>${ev[k].n}</td>
-    <td class="${k==="sales"?"strong":""}">${money(ev[k].v)}</td>
+    <td class="${(k==="sales"||k==="verified")?"strong":""}">${money(ev[k].v)}</td>
     <td>${Math.round(ev[k].v/evTotal*100)}%</td></tr>`).join("")}
   </tbody></table>
   ${soft>=40?`<div class="warn">${soft}% of this total rests on estimates rather than observed sales or a market guide. Estimates run high on star players and premium products. Verify the largest before treating the total as real.</div>`:""}
@@ -1364,6 +1373,11 @@ function viewMoney(st){
   <table class="tbl"><tbody>
    ${noPrice?`<tr><td>No price yet</td><td>${noPrice}</td></tr>`:""}
    ${needsReview?`<tr><td>Flagged for review</td><td>${needsReview}</td></tr>`:""}
+   ${(()=>{const g=owned.filter(c=>c.graded&&
+     (!c.grader||["OTHER","?",""].indexOf(String(c.grader).toUpperCase())>-1));
+    return g.length?`<tr><td>Graded but grader not read</td><td>${g.length}</td></tr>`:"";})()}
+   ${(()=>{const g=owned.filter(c=>c.graded&&!c.grade);
+    return g.length?`<tr><td>Graded but no grade recorded</td><td>${g.length}</td></tr>`:"";})()}
    ${stale?`<tr><td>Price older than ${esc(S.settings.staleDays)} days</td><td>${stale}</td></tr>`:""}
   </tbody></table></div>`:""}
 
@@ -1463,6 +1477,12 @@ function viewSetup(){
   <p class="note">${g.length} card${g.length===1?"":"s"} appear more than once. Merging keeps the most complete record and folds in anything the others have.</p>
   <button class="btn wide" data-act="dedupe">Merge duplicates</button></div>`:"";})()}
 
+ ${(()=>{const stale=S.cards.filter(c=>c.review&&c.evidence&&c.evidence.current&&
+   ["sales","guide"].indexOf(c.evidence.current.method)>-1).length;
+  return stale?`<div class="section"><div class="sec-hd"><h2>Review flags</h2><span>${stale}</span></div>
+  <p class="note">${stale} cards are flagged for review but were priced from sales or a market guide. Earlier builds flagged almost everything; these can be cleared.</p>
+  <button class="btn ghost wide" data-act="clearflags">Clear ${stale} unnecessary flags</button></div>`:"";})()}
+
  <div class="section"><div class="sec-hd"><h2>Diagnostics</h2></div>
   <p class="note">Checks each link in the chain separately, without spending any API credit.</p>
   <button class="btn wide" data-act="diag">Run connection test</button>
@@ -1515,6 +1535,9 @@ function viewSheet(){
   ${fld("Current value as-is","vRaw",c.vRaw,"","f","number")}`;
  if(!c.graded)h+=`<div class="row2">${fld("Value if PSA 9","v9",c.v9,"","f","number")}${fld("Value if PSA 10","v10",c.v10,"","f","number")}</div>`;
  h+=fld("Prices checked on","pricedOn",c.pricedOn,"","f","date");
+ h+=`<label class="fld"><span class="fld-l">Have you checked this price yourself?</span>
+  <div class="tog"><button class="tg${!c.verified?" on":""}" data-verif="0">Not yet</button>
+  <button class="tg${c.verified?" on":""}" data-verif="1">Checked — leave it alone</button></div></label>`;
  h+=evidencePanel(c);
  h+=lookupLinks(c);
  h+=`<button class="btn ghost wide" data-act="repriceone">${daysSince(c.pricedOn)>900?"Look up the price":`Refresh price (${daysSince(c.pricedOn)} days old)`}</button>`;
@@ -1726,7 +1749,7 @@ document.addEventListener("click",async e=>{
  // a tap on the dim area outside the sheet closes it
  if(editing&&e.target&&e.target.classList&&e.target.classList.contains("sheet-wrap")){
   editing=null;render();return;}
- const t=e.target.closest("[data-tab],[data-act],[data-open],[data-panel],[data-pick],[data-graded],[data-pic],[data-clear],[data-toggletrait]");
+ const t=e.target.closest("[data-tab],[data-act],[data-open],[data-panel],[data-pick],[data-graded],[data-pic],[data-clear],[data-toggletrait],[data-verif]");
  if(!t)return;
  const d=t.dataset;
  if(d.clear!==undefined&&d.clear){e.stopPropagation();
@@ -1747,6 +1770,7 @@ document.addEventListener("click",async e=>{
   }
   F.limit=50;render();return;}
  if(d.graded!==undefined&&editing){editing.graded=d.graded==="1";render();return;}
+ if(d.verif!==undefined&&editing){editing.verified=d.verif==="1";render();return;}
  if(d.toggletrait&&editing){
   setTrait(editing,d.toggletrait,traitList(editing).indexOf(d.toggletrait)===-1);
   render();return;}
@@ -1832,6 +1856,13 @@ document.addEventListener("click",async e=>{
    if(!n0){toast("No duplicates found");break;}
    const removed=await mergeDupes();render();
    toast("Merged "+n0+" group"+(n0===1?"":"s")+", removed "+removed);break;}
+  case"clearflags":{
+   const hit=S.cards.filter(c=>c.review&&c.evidence&&c.evidence.current&&
+    ["sales","guide"].indexOf(c.evidence.current.method)>-1);
+   if(!hit.length){toast("No flags to clear");break;}
+   hit.forEach(c=>{c.review=false;});
+   save();pushMany(hit);render();
+   toast("Cleared "+hit.length+" flag"+(hit.length===1?"":"s"));break;}
   case"resetusage":S.settings.usage={in:0,out:0,searches:0,scans:0,prices:0};
    save();pushSettings();render();toast("Counter reset");break;
   case"retry":{const k=Object.keys(pending).length;
@@ -1950,7 +1981,8 @@ document.addEventListener("click",async e=>{
    const add=seed().filter(c=>have.indexOf(c.sku)===-1);
    if(!add.length){toast("They're already here");break;}
    S.cards=add.concat(S.cards);pushMany(add);render();toast(`Added ${add.length} cards`);break;}
-  case"repriceone":if(editing){commit();queueReprice([S.cards.find(c=>c.id===editing.id)]);editing=null;render();}break;
+  case"repriceone":if(editing){commit();
+   queueReprice([S.cards.find(c=>c.id===editing.id)],true);editing=null;render();}break;
   case"repriceview":{const set=(window._visible||[]).filter(c=>c.subject||c.set);
    if(confirmSpend(set.length))queueReprice(set);break;}
   case"repricestale":{const set=S.cards.filter(isStale);
@@ -1979,7 +2011,12 @@ document.addEventListener("input",e=>{
   const pane=document.querySelector(".pane");if(!pane)return;
   clearTimeout(window._qt);window._qt=setTimeout(()=>{const p=el.selectionStart;render();
    const q2=document.getElementById("q");if(q2){q2.focus();q2.setSelectionRange(p,p);}},220);return;}
- if(el.dataset.f&&editing){editing[el.dataset.f]=el.value;
+ if(el.dataset.f&&editing){
+  // typing a value yourself counts as verifying it
+  if(["vRaw","v9","v10"].indexOf(el.dataset.f)>-1&&String(el.value)!==String(editing[el.dataset.f])){
+   editing.verified=true;
+  }
+  editing[el.dataset.f]=el.value;
   const lt=document.querySelector(".lt code");if(lt)lt.textContent=title(editing);
   if(["graded","status","conf","vRaw","v9","v10"].includes(el.dataset.f)){
    clearTimeout(window._rt);window._rt=setTimeout(()=>{const a=document.activeElement,k=a&&a.dataset?a.dataset.f:null,
