@@ -271,21 +271,26 @@ textarea.fld-i{resize:vertical}
 .ev-warn{background:#FDF0D9;border-left:3px solid var(--gold);padding:9px 10px;margin-top:9px;
  font-size:11.5px;line-height:1.5;color:#5C4409}
 .val-n{font-family:var(--mono);font-size:9.5px;font-weight:400;color:var(--mute);letter-spacing:.02em}
-.foot{display:flex;flex-direction:column;align-items:center;gap:18px;
- max-width:820px;margin:8px auto 0;padding:24px 20px 32px;
+.foot{display:flex;align-items:center;gap:26px;
+ max-width:820px;margin:8px auto 0;padding:22px 20px 30px;
  border-top:1px solid var(--rule);color:var(--mute)}
-.foot-q{margin:0;max-width:420px;text-align:center;font-size:13px;line-height:1.65;
- color:var(--ink);opacity:.72;font-style:italic}
+.foot-mid{display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;width:98px}
+.foot-mark{width:20px;height:20px;color:var(--ink);opacity:.8}
+.foot-name{font-family:var(--disp);font-size:11px;letter-spacing:.16em;color:var(--ink);opacity:.75}
+.foot-ver{font-family:var(--mono);font-size:9.5px;letter-spacing:.04em}
+.foot-by{font-family:var(--mono);font-size:9.5px;color:var(--red);opacity:.8;letter-spacing:.04em}
+.foot-q{flex:1;margin:0;text-align:center;font-size:13px;line-height:1.6;
+ color:var(--ink);opacity:.72;font-style:italic;min-width:0}
 .foot-qt::before{content:"\201C"}
 .foot-qt::after{content:"\201D"}
 .foot-q cite{display:block;margin-top:7px;font-style:normal;font-family:var(--mono);
  font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);opacity:.9}
-.foot-q cite::before{content:"— "}
-.foot-mid{display:flex;flex-direction:column;align-items:center;gap:5px}
-.foot-mark{width:20px;height:20px;color:var(--ink);opacity:.8}
-.foot-name{font-family:var(--disp);font-size:11px;letter-spacing:.18em;color:var(--ink);opacity:.75}
-.foot-ver{font-family:var(--mono);font-size:10px;letter-spacing:.04em}
-.foot-by{font-family:var(--mono);font-size:10px;color:var(--red);opacity:.8;letter-spacing:.04em}
+.foot-q cite::before{content:"\2014 "}
+@media (max-width:520px){
+ .foot{flex-direction:column;gap:18px}
+ .foot-mid{width:auto;order:2}
+ .foot-q{order:1}
+}
 .tick-go{width:100%;text-align:left;font-family:inherit;padding:9px 4px 11px}
 .tick-go:active{opacity:.6}
 .diag{font-family:var(--mono);font-size:11px;line-height:1.6;background:var(--ink);color:#D6DAE0;
@@ -393,7 +398,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="62";
+const VERSION="63";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -1184,7 +1189,6 @@ function render(){
  h+=repriceBanner();
  h+=tab==="scan"?viewScan():tab==="collection"?viewCollection():tab==="grading"?viewGrading():tab==="money"?viewMoney(st):viewSetup();
  h+=(()=>{const q=quoteOfTheDay();return `<footer class="foot">
-  <blockquote class="foot-q"><span class="foot-qt">${esc(q[0])}</span><cite>${esc(q[1])}</cite></blockquote>
   <div class="foot-mid">
    <svg class="foot-mark" viewBox="0 0 64 64" aria-hidden="true">
     <rect x="10" y="2" width="44" height="60" rx="8" fill="currentColor" opacity=".85"/>
@@ -1196,6 +1200,7 @@ function render(){
    <span class="foot-ver">build ${VERSION}</span>
    <span class="foot-by">raf1983</span>
   </div>
+  <blockquote class="foot-q"><span class="foot-qt">${esc(q[0])}</span><cite>${esc(q[1])}</cite></blockquote>
  </footer>`;})();
  if(tab==="collection")h+=`<button class="fab" data-act="new" aria-label="Add a card">+</button>`;
  if(editing)h+=viewSheet();
