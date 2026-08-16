@@ -340,8 +340,8 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="52";
-const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
+const VERSION="54";
+const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
 const TRAITS_TCG=["ex","v","vmax","vstar","gx","full-art","illustration-rare",
@@ -351,6 +351,17 @@ const TRAIT_LABEL={numbered:"numbered",auto:"auto",relic:"patch/relic",rookie:"r
  "illustration-rare":"IR","special-illustration-rare":"SIR","secret-rare":"secret",
  holo:"holo","reverse-holo":"reverse holo"};
 const isTCG=c=>["Pokemon","Magic","Yu-Gi-Oh","Other TCG"].indexOf(c&&c.cat)>-1;
+/* Not single cards — no grading maths, no PSA tiers. */
+const NON_CARD=["Sealed product","Funko Pop"];
+const isItem=c=>NON_CARD.indexOf(c&&c.cat)>-1;
+function goatNames(){
+ return String(S.settings.goats||"").split(/[,;\n]+/).map(s=>s.trim().toLowerCase()).filter(Boolean);
+}
+function isGoat(c){
+ const s=String(c&&c.subject||"").trim().toLowerCase();
+ if(!s)return false;
+ return goatNames().some(g=>s===g||s.indexOf(g)>-1||g.indexOf(s)>-1);
+}
 function traitList(c){
  const raw=String((c&&c.traits)||"").toLowerCase();
  const set=raw.split(/[,;]+/).map(s=>s.trim()).filter(Boolean);
@@ -363,7 +374,7 @@ function setTrait(c,t,on){
  if(on)list.push(t);
  c.traits=list.join(",");
 }
-const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90,nickname:"",gradeWith:"PSA",usage:null};
+const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90,nickname:"",gradeWith:"PSA",goats:"Michael Jordan, Kobe Bryant, LeBron James, Stephen Curry, Magic Johnson, Larry Bird, Kareem Abdul-Jabbar, Wilt Chamberlain, Shaquille O'Neal, Tim Duncan, Victor Wembanyama, Shohei Ohtani, Babe Ruth, Mickey Mantle, Willie Mays, Hank Aaron, Ken Griffey Jr, Mike Trout, Tom Brady, Jerry Rice, Joe Montana, Peyton Manning, Patrick Mahomes, Pele, Diego Maradona, Lionel Messi, Cristiano Ronaldo, Kylian Mbappe, Wayne Gretzky, Mario Lemieux, Connor McDavid, Muhammad Ali, Mike Tyson, Jon Jones, Roger Federer, Serena Williams, Rafael Nadal, Novak Djokovic, Tiger Woods, Jack Nicklaus, Lewis Hamilton, Ayrton Senna, Michael Schumacher, Caitlin Clark, A'ja Wilson, Diana Taurasi",usage:null};
 const CONF={low:{p10:.08,p9:.32},med:{p10:.22,p9:.45},high:{p10:.42,p9:.42}};
 /* Where a submission actually lands, by how the card looks. Real grading
    outcomes spread across 7 through 10 — treating everything below 9 as
@@ -435,7 +446,7 @@ function title(c){return[c.year,c.set,c.subject,c.num?"#"+c.num:"",c.variant,c.s
  c.graded?c.grader+" "+c.grade:"RAW"].filter(Boolean).join(" ");}
 
 function gradeCall(c){
- if(c.graded)return null;
+ if(c.graded||isItem(c))return null;
  const raw=n(c.vRaw);
  let v9=n(c.v9),v10=n(c.v10);
  // identical figures across tiers mean the source was misread — treat as unknown
@@ -1094,10 +1105,10 @@ function render(){
    ${S.settings.nickname?`<span class="collname">${esc(S.settings.nickname)}</span>`:""}
   </div></div>
   <div class="ticker">
-   ${tick("cards",st.owned.length)}${tick("value",money(st.value))}
+   ${tick("items",st.owned.length)}${tick("value",money(st.value))}
    ${tick("cost",money(st.cost))}${tick("grade now",st.cands.length,st.cands.length>0)}
   </div></header>
-  <nav class="tabs">${[["scan","Scan"],["collection","Cards"],["grading","Grading"],["money","Money"],["setup","Setup"]]
+  <nav class="tabs">${[["scan","Scan"],["collection","Items"],["grading","Grading"],["money","Money"],["setup","Setup"]]
    .map(([k,l])=>`<button class="tab${tab===k?" on":""}" data-tab="${k}">${l}</button>`).join("")}</nav>`;
  h+=repriceBanner();
  h+=tab==="scan"?viewScan():tab==="collection"?viewCollection():tab==="grading"?viewGrading():tab==="money"?viewMoney(st):viewSetup();
@@ -1143,6 +1154,7 @@ function viewCollection(){
     f==="graded"?!!c.graded:
     f==="review"?!!c.review:
     f==="verified"?!!c.verified:
+    f==="goats"?isGoat(c):
     f==="stale"?isStale(c):
     f==="unpriced"?!n(c.vRaw):false);
    if(!hit)return false;
@@ -1160,8 +1172,8 @@ function viewCollection(){
  const cats=["all",...new Set(S.cards.map(c=>c.cat))];
  window._visible=list;
 
- const FLAGS=[["raw","Raw"],["graded","Graded"],["verified","Checked by you"],["unpriced","No price yet"],
-  ["stale","Stale prices"],["review","Needs review"],["sold","Sold"]];
+ const FLAGS=[["goats","GOATs"],["raw","Raw"],["graded","Graded"],["verified","Checked by you"],
+  ["unpriced","No price yet"],["stale","Stale prices"],["review","Needs review"],["sold","Sold"]];
  const SORTS=[["newest","Newest scan"],["oldest","Oldest scan"],["value","Value"],
   ["year","Card year"],["name","Name A-Z"]];
  const catCounts={},traitCounts={};
@@ -1199,11 +1211,11 @@ function viewCollection(){
   ${F.open==="sort"?`<div class="fpanel">${SORTS.map(([k,l])=>
     box("sort",k,l,F.sort===k,0)).join("")}</div>`:""}
   ${anyFilter?`<div class="fclear"><button data-act="clearfilters">Clear all filters</button></div>`:""}
-  <div class="count">${list.length} card${list.length===1?"":"s"}
+  <div class="count">${list.length} item${list.length===1?"":"s"}
    ${list.length&&list.some(c=>c.subject||c.set)?`<button class="mini" data-act="repriceview">refresh these prices${
     list.length>=5?` (~${money4(avgLookupCost()*list.length)})`:""}</button>`:""}</div>`;
  if(!list.length)h+=`<div class="empty">
-  <p>${S.cards.length?"Nothing matches those filters.":"No cards yet. Scan one, or add it by hand."}</p>
+  <p>${S.cards.length?"Nothing matches those filters.":"Nothing here yet. Scan something, or add it by hand."}</p>
   ${S.cards.length&&(F.cats.length||F.traits.length||F.flags.length)?`<button class="btn ghost" data-act="clearfilters">Clear filters</button>`:""}
   <button class="btn" data-act="new">Add a card by hand</button></div>`;
  else{h+=list.slice(0,F.limit).map(slabRow).join("");
@@ -1397,6 +1409,10 @@ function viewSetup(){
  return`<div class="pane">
  <div class="section"><div class="sec-hd"><h2>Photos</h2></div>
   <p class="note">Open any card and tap Front or Back to shoot it. Photos upload to your Supabase project and get real public URLs, so the listing export carries links eBay and Whatnot can load directly. Nothing to configure.</p></div>
+
+ <div class="section"><div class="sec-hd"><h2>GOATs</h2><span>${goatNames().length}</span></div>
+  <p class="note">Cards, Show, GOATs filters to these names. Separate with commas — add or remove whoever you like.</p>
+  ${fld("The list","goats",S.settings.goats,"","set","area")}</div>
 
  <div class="section"><div class="sec-hd"><h2>Collection</h2></div>
   <p class="note">Shows in the top right, and on the listing sheet when you export.</p>
