@@ -154,19 +154,23 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .sec-hd{display:flex;align-items:baseline;gap:8px;border-bottom:2px solid var(--ink);padding-bottom:5px;margin-bottom:10px}
 .sec-hd h2{font-family:var(--disp);font-weight:500;font-size:14px;letter-spacing:.11em;text-transform:uppercase;margin:0}
 .sec-hd span{font-family:var(--mono);font-size:11px;color:var(--mute)}
-.grow{background:var(--label);border:1px solid var(--rule);border-radius:2px;padding:10px 12px;margin-bottom:7px;cursor:pointer}
-.grow-hd{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
-.grow-t{font-size:13px;font-weight:500;line-height:1.3}
-.grow-net{font-family:var(--mono);font-size:13px;font-weight:600;white-space:nowrap;color:var(--mute)}
-.grow-net.pos{color:var(--green)}
-.grow-empty{font-size:12px;color:var(--mute);margin-top:5px}
-.bars{margin-top:8px;display:flex;flex-direction:column;gap:4px}
-.bar{display:flex;align-items:center;gap:8px}
-.bar-l{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute);width:42px;flex-shrink:0}
-.bar-tr{flex:1;height:8px;background:#EDEFF2;border-radius:1px;overflow:hidden}
-.bar-f{height:100%}
-.b-raw{background:#9AA2AD}.b-9{background:var(--ink)}.b-10{background:var(--gold)}
-.bar-v{font-family:var(--mono);font-size:11px;width:58px;text-align:right;flex-shrink:0}
+.grow{display:flex;gap:11px;background:var(--label);border:1px solid var(--rule);
+ border-radius:2px;padding:10px 12px;margin-bottom:7px;cursor:pointer}
+.gimg{width:52px;height:72px;object-fit:cover;border-radius:2px;flex-shrink:0;background:#DDE1E7}
+.gimg.ph{background:repeating-linear-gradient(135deg,#EDEFF2,#EDEFF2 5px,#E3E6EB 5px,#E3E6EB 10px)}
+.gbody{flex:1;min-width:0}
+.ghd{display:flex;flex-wrap:wrap;align-items:baseline;gap:7px}
+.gt2{font-size:13px;font-weight:500;line-height:1.35}
+.gvar{font-family:var(--mono);font-size:10px;color:var(--mute)}
+.gcells{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:9px}
+.gcell{background:var(--paper);border-radius:2px;padding:6px 4px;text-align:center}
+.gcell-l{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute)}
+.gcell-v{font-family:var(--mono);font-size:12.5px;font-weight:600;margin-top:2px}
+.gcell-v.hi{color:var(--gold)}
+.gnet{font-family:var(--mono);font-size:13px;font-weight:600;margin-top:9px;color:var(--mute)}
+.gnet.pos{color:var(--green)}
+.gnet-l{font-family:var(--body);font-size:11px;font-weight:400;color:var(--mute)}
+.grow-empty{font-size:12px;color:var(--mute);margin-top:6px;line-height:1.5}
 
 .bigstat{background:var(--ink);color:#fff;padding:20px 18px;border-radius:2px}
 .bs-l{font-size:10px;letter-spacing:.14em;text-transform:uppercase;opacity:.55}
@@ -270,8 +274,8 @@ textarea.fld-i{resize:vertical}
  border-top:1px solid var(--rule);color:var(--mute)}
 .foot-q{margin:0;max-width:420px;text-align:center;font-size:13px;line-height:1.65;
  color:var(--ink);opacity:.72;font-style:italic}
-.foot-q::before{content:"\201C"}
-.foot-q::after{content:"\201D"}
+.foot-qt::before{content:"\201C"}
+.foot-qt::after{content:"\201D"}
 .foot-q cite{display:block;margin-top:7px;font-style:normal;font-family:var(--mono);
  font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);opacity:.9}
 .foot-q cite::before{content:"— "}
@@ -387,7 +391,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="59";
+const VERSION="60";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -501,31 +505,27 @@ function gradeCall(c){
  if(v10&&(v10<=raw||(v9&&v10<=v9)))v10=0;
  if(!raw&&!v9&&!v10)return{verdict:"unpriced",net:0};
 
- // Preferred: the full published ladder, 7 through 10, for the grader you use.
+ // Published ladder only. Never invent a grade price — an imagined PSA 10
+ // produces an imagined upside, which is worse than saying nothing.
  const tv=tierValues(c);
- if(tv){
-  const L=LADDER[c.conf]||LADDER.med;
-  const fill=(x,fb)=>x||fb;
-  const g8=fill(tv.g8,raw*1.4), g7=fill(tv.g7,raw*1.1);
-  const g9=fill(tv.g9,g8*1.5), g95=fill(tv.g95,g9*1.6), g10=fill(tv.g10,g9*3);
-  const ev=L.g7*g7+L.g8*g8+L.g9*g9+L.g95*g95+L.g10*g10+L.below*raw
-    -n(S.settings.gradingCost);
-  const net=ev-raw;
-  let verdict="skip";
-  if(net>n(S.settings.gradingCost)&&net>raw*.5)verdict="grade";
-  else if(net>0)verdict="maybe";
-  return{verdict,net,ladder:{g7,g8,g9,g95,g10},ev};
- }
+ const pub={g7:tv?n(tv.g7):0, g8:tv?n(tv.g8):0, g9:tv?n(tv.g9):v9,
+            g95:tv?n(tv.g95):0, g10:tv?n(tv.g10):v10};
+ if(!pub.g9&&!pub.g10)return{verdict:"nograded",net:0,ladder:pub};
 
- if(!v9&&!v10)return{verdict:"nograded",net:0};
- const p=CONF[c.conf]||CONF.med, pLow=Math.max(0,1-p.p10-p.p9);
- const ev=p.p10*v10+p.p9*v9+pLow*raw*1.15-n(S.settings.gradingCost);
+ const L=LADDER[c.conf]||LADDER.med;
+ // Only outcomes we have a real price for take part. The remaining
+ // probability is redistributed across them rather than invented.
+ const parts=[["g7",L.g7],["g8",L.g8],["g9",L.g9],["g95",L.g95],["g10",L.g10]]
+  .filter(([k])=>pub[k]>0);
+ const mass=parts.reduce((a,[,p])=>a+p,0)+L.below;
+ if(!mass)return{verdict:"nograded",net:0,ladder:pub};
+ const ev=(parts.reduce((a,[k,p])=>a+p*pub[k],0)+L.below*raw)/mass
+   -n(S.settings.gradingCost);
  const net=ev-raw;
  let verdict="skip";
- if(v10<n(S.settings.gradingCost)*2)verdict="skip";
- else if(net>n(S.settings.gradingCost)&&net>raw*.5)verdict="grade";
+ if(net>n(S.settings.gradingCost)&&net>raw*.5)verdict="grade";
  else if(net>0)verdict="maybe";
- return{verdict,net};
+ return{verdict,net,ev,ladder:pub,basis:parts.map(([k])=>k)};
 }
 
 /* ============ cloud storage (Supabase) ============ */
@@ -1174,7 +1174,7 @@ function render(){
  h+=repriceBanner();
  h+=tab==="scan"?viewScan():tab==="collection"?viewCollection():tab==="grading"?viewGrading():tab==="money"?viewMoney(st):viewSetup();
  h+=(()=>{const q=quoteOfTheDay();return `<footer class="foot">
-  <blockquote class="foot-q">${esc(q[0])}<cite>${esc(q[1])}</cite></blockquote>
+  <blockquote class="foot-q"><span class="foot-qt">${esc(q[0])}</span><cite>${esc(q[1])}</cite></blockquote>
   <div class="foot-mid">
    <svg class="foot-mark" viewBox="0 0 64 64" aria-hidden="true">
     <rect x="10" y="2" width="44" height="60" rx="8" fill="currentColor" opacity=".85"/>
@@ -1366,13 +1366,32 @@ function sec(t,rows){
  return`<div class="section"><div class="sec-hd"><h2>${t}</h2><span>${rows.length}</span></div>${rows.map(growRow).join("")}</div>`;
 }
 function growRow({c,g}){
- const raw=n(c.vRaw),v9=n(c.v9),v10=n(c.v10),max=Math.max(raw,v9,v10,1);
+ const raw=n(c.vRaw);
+ const L=g.ladder||{};
+ const f=photoURL(c,"F");
+ const cell=(label,v,strong)=>`<div class="gcell">
+   <div class="gcell-l">${label}</div>
+   <div class="gcell-v${strong?" hi":""}">${n(v)?money(v):"\u2014"}</div></div>`;
+ const title=[c.year,c.set,c.subject,c.num?"#"+c.num:""].filter(Boolean).join(" ");
  return`<div class="grow" data-open="${c.id}">
-  <div class="grow-hd"><span class="grow-t">${esc([c.year,c.set,c.subject,c.num?"#"+c.num:""].filter(Boolean).join(" "))}</span>
-  ${g.verdict!=="unpriced"?`<span class="grow-net${g.net>0?" pos":""}">${g.net>0?"+":""}${money(g.net)}</span>`:""}</div>
-  ${g.verdict==="unpriced"?`<div class="grow-empty">No prices yet. Refresh this card or fill them in.</div>`:
-   g.verdict==="nograded"?`<div class="grow-empty">Priced raw at ${money(c.vRaw)}, but no PSA 9 / 10 sales found — so there's no honest grading call to make. Tap Refresh price, or enter them yourself.</div>`:
-   `<div class="bars">${bar("raw",raw,max,"b-raw")}${bar("psa 9",v9,max,"b-9")}${bar("psa 10",v10,max,"b-10")}</div>`}
+  ${f?`<img class="gimg" src="${esc(f)}" alt="" loading="lazy" onerror="this.remove()">`:`<div class="gimg ph"></div>`}
+  <div class="gbody">
+   <div class="ghd"><span class="gt2">${esc(title)}</span>
+    ${c.variant?`<span class="gvar">${esc(c.variant)}</span>`:""}</div>
+   ${g.verdict==="unpriced"
+    ?`<div class="grow-empty">No prices yet. Refresh this one or fill them in.</div>`
+    :g.verdict==="nograded"
+     ?`<div class="grow-empty">Priced raw at ${money(raw)}, but no PSA 9 or 10 figure was published — so there is no honest grading call to make.</div>`
+     :`<div class="gcells">
+        ${cell("Raw",raw)}
+        ${cell("PSA 8",L.g8)}
+        ${cell("PSA 9",L.g9)}
+        ${cell("PSA 10",L.g10,true)}
+       </div>
+       <div class="gnet${g.net>0?" pos":""}">
+        ${g.net>0?"+":""}${money(g.net)} <span class="gnet-l">expected, after the ${money(S.settings.gradingCost)} fee</span>
+       </div>`}
+  </div>
  </div>`;
 }
 function bar(l,v,max,cls){return`<div class="bar"><span class="bar-l">${l}</span>
