@@ -339,7 +339,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="46";
+const VERSION="47";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -377,7 +377,7 @@ function tierValues(c){
  const t=c.evidence&&c.evidence.tiers;
  if(!t)return null;
  // A ladder where the grades match the raw figure is a misread table, not a market.
- const asc=[n(t.ungraded),n(t.g8),n(t.g9),n(t.g95)].filter(v=>v>0);
+ const asc=[n(t.ungraded),n(t.g7),n(t.g8),n(t.g9),n(t.g95)].filter(v=>v>0);
  for(let i=1;i<asc.length;i++)if(asc[i]<=asc[i-1])return null;
  const tenKey=TEN_KEY[String(S.settings.gradeWith||"PSA").toUpperCase()]||"psa10";
  const v={g7:n(t.g7),g8:n(t.g8),g9:n(t.g9),g95:n(t.g95),g10:n(t[tenKey])||n(t.psa10)};
