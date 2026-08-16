@@ -40,7 +40,42 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .wm-1{font-weight:400;opacity:.55;margin-right:6px}
 .wm-2{font-weight:600}
 .save{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;opacity:.6}
-.hdr-right{display:flex;align-items:baseline;gap:10px;min-width:0}
+.hdr-right{display:flex;align-items:center;gap:9px;min-width:0}
+.hdr-av{width:24px;height:24px;border-radius:50%;object-fit:cover;flex-shrink:0;
+ border:1px solid rgba(255,255,255,.3)}
+
+/* setup: collapsible sections instead of one long scroll */
+.setup{padding-top:12px}
+.sec{background:var(--label);border:1px solid var(--rule);border-radius:3px;margin-bottom:8px;
+ overflow:hidden}
+.sec summary{display:flex;align-items:center;justify-content:space-between;gap:8px;
+ padding:14px 14px;cursor:pointer;list-style:none;user-select:none}
+.sec summary::-webkit-details-marker{display:none}
+.sec summary::after{content:"\203A";transform:rotate(90deg);color:var(--mute);font-size:16px;
+ margin-left:auto;transition:transform .15s}
+.sec[open] summary::after{transform:rotate(-90deg)}
+.sec-t{font-family:var(--disp);font-size:13px;letter-spacing:.11em;text-transform:uppercase}
+.sec-n{font-family:var(--mono);font-size:10px;background:var(--ink);color:#fff;
+ border-radius:9px;padding:2px 7px}
+.sec-b{padding:0 14px 16px;border-top:1px solid var(--rule)}
+.sec-b .btn.wide{margin-top:8px}
+.sec-b .note:first-child{margin-top:12px}
+.sec-b .tbl{margin-top:10px}
+
+.avrow{display:flex;align-items:center;gap:12px;margin:14px 0 12px}
+.av{width:56px;height:56px;border-radius:50%;object-fit:cover;flex-shrink:0}
+.av.ph{background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;
+ font-family:var(--disp);font-size:22px}
+.avtext{min-width:0}
+.avname{font-family:var(--disp);font-size:17px}
+.avsub{font-family:var(--mono);font-size:10.5px;color:var(--mute);margin-top:2px;
+ overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.kpi{background:var(--ink);color:#fff;padding:14px 16px;border-radius:2px;margin:12px 0 0}
+.kpi.warn{background:#5C4409}
+.kpi-l{font-size:10px;letter-spacing:.14em;text-transform:uppercase;opacity:.55}
+.kpi-v{font-family:var(--mono);font-weight:600;font-size:26px;margin:3px 0 1px}
+.kpi-s{font-family:var(--mono);font-size:11px;opacity:.75}
 .collname{font-family:var(--disp);font-size:11px;letter-spacing:.11em;color:#fff;opacity:.55;
  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:44vw}
 .ticker{display:flex;margin-top:12px;border-top:1px solid rgba(255,255,255,.16)}
@@ -79,7 +114,9 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
   font-size:12px;border-radius:2px;color:var(--mute)}
 .chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 .chip.alt{font-family:var(--mono);font-size:11px}
-.count{font-family:var(--mono);font-size:11px;color:var(--mute);margin:12px 0 8px;letter-spacing:.04em}
+.count{display:flex;align-items:baseline;justify-content:space-between;
+ font-family:var(--mono);font-size:11px;color:var(--mute);margin:12px 0 8px;letter-spacing:.04em}
+.count-v{font-size:15px;font-weight:600;color:var(--ink);letter-spacing:-.01em}
 
 /* signature: the slab row */
 .slab{display:flex;background:var(--label);border:1px solid var(--rule);border-radius:2px;
@@ -331,6 +368,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 <div id="app"></div>
 <input type="file" id="csvin" accept=".csv,text/csv" hidden>
 <input type="file" id="picin" accept="image/*" hidden>
+<input type="file" id="avin" accept="image/*" hidden>
 <input type="file" id="scancam" accept="image/*" capture="environment" hidden>
 <input type="file" id="scanlib" accept="image/*" multiple hidden>
 
@@ -340,7 +378,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="56";
+const VERSION="57";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -374,7 +412,7 @@ function setTrait(c,t,on){
  if(on)list.push(t);
  c.traits=list.join(",");
 }
-const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90,nickname:"",gradeWith:"PSA",goats:"Michael Jordan, Kobe Bryant, LeBron James, Stephen Curry, Magic Johnson, Larry Bird, Kareem Abdul-Jabbar, Wilt Chamberlain, Shaquille O'Neal, Tim Duncan, Victor Wembanyama, Shohei Ohtani, Babe Ruth, Mickey Mantle, Willie Mays, Hank Aaron, Ken Griffey Jr, Mike Trout, Tom Brady, Jerry Rice, Joe Montana, Peyton Manning, Patrick Mahomes, Pele, Diego Maradona, Lionel Messi, Cristiano Ronaldo, Kylian Mbappe, Wayne Gretzky, Mario Lemieux, Connor McDavid, Muhammad Ali, Mike Tyson, Jon Jones, Roger Federer, Serena Williams, Rafael Nadal, Novak Djokovic, Tiger Woods, Jack Nicklaus, Lewis Hamilton, Ayrton Senna, Michael Schumacher, Caitlin Clark, A'ja Wilson, Diana Taurasi",usage:null};
+const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90,nickname:"",avatar:"",gradeWith:"PSA",goats:"Michael Jordan, Kobe Bryant, LeBron James, Stephen Curry, Magic Johnson, Larry Bird, Kareem Abdul-Jabbar, Wilt Chamberlain, Shaquille O'Neal, Tim Duncan, Victor Wembanyama, Shohei Ohtani, Babe Ruth, Mickey Mantle, Willie Mays, Hank Aaron, Ken Griffey Jr, Mike Trout, Tom Brady, Jerry Rice, Joe Montana, Peyton Manning, Patrick Mahomes, Pele, Diego Maradona, Lionel Messi, Cristiano Ronaldo, Kylian Mbappe, Wayne Gretzky, Mario Lemieux, Connor McDavid, Muhammad Ali, Mike Tyson, Jon Jones, Roger Federer, Serena Williams, Rafael Nadal, Novak Djokovic, Tiger Woods, Jack Nicklaus, Lewis Hamilton, Ayrton Senna, Michael Schumacher, Caitlin Clark, A'ja Wilson, Diana Taurasi",usage:null};
 const CONF={low:{p10:.08,p9:.32},med:{p10:.22,p9:.45},high:{p10:.42,p9:.42}};
 /* Where a submission actually lands, by how the card looks. Real grading
    outcomes spread across 7 through 10 — treating everything below 9 as
@@ -1116,6 +1154,7 @@ function render(){
   <div class="hdr-right">
    <span class="save" id="saveflag"></span>
    ${S.settings.nickname?`<span class="collname">${esc(S.settings.nickname)}</span>`:""}
+   ${S.settings.avatar?`<img class="hdr-av" src="${esc(S.settings.avatar)}" alt="">`:""}
   </div></div>
   <div class="ticker">
    ${tick("items",st.owned.length)}${tick("value",money(st.value))}
@@ -1224,9 +1263,8 @@ function viewCollection(){
   ${F.open==="sort"?`<div class="fpanel">${SORTS.map(([k,l])=>
     box("sort",k,l,F.sort===k,0)).join("")}</div>`:""}
   ${anyFilter?`<div class="fclear"><button data-act="clearfilters">Clear all filters</button></div>`:""}
-  <div class="count">${list.length} item${list.length===1?"":"s"}
-   ${list.length&&list.some(c=>c.subject||c.set)?`<button class="mini" data-act="repriceview">refresh these prices${
-    list.length>=5?` (~${money4(avgLookupCost()*list.length)})`:""}</button>`:""}</div>`;
+  <div class="count"><span>${list.length} item${list.length===1?"":"s"}</span>
+   <span class="count-v">${money(list.reduce((a,c)=>a+n(c.vRaw)*(n(c.qty)||1),0))}</span></div>`;
  if(!list.length)h+=`<div class="empty">
   <p>${S.cards.length?"Nothing matches those filters.":"Nothing here yet. Scan something, or add it by hand."}</p>
   ${S.cards.length&&(F.cats.length||F.traits.length||F.flags.length)?`<button class="btn ghost" data-act="clearfilters">Clear filters</button>`:""}
@@ -1303,7 +1341,30 @@ function viewMoney(st){
   <div class="grid2">
    <div class="stat"><div class="st-l">Realized profit</div><div class="st-v">${money(st.realized)}</div><div class="st-s">${st.sold.length} sold, ${esc(S.settings.feePct)}% fees</div></div>
    <div class="stat"><div class="st-l">Grading upside</div><div class="st-v">${money(st.upside)}</div><div class="st-s">${st.cands.length} candidates</div></div></div>`;
- if(st.unpriced)h+=`<div class="warn">${st.unpriced} cards have no price yet — portfolio value is understated until you fill them in.</div>`;
+ h+=`<div class="section"><div class="sec-hd"><h2>By category</h2><span>${byCat.length}</span></div>
+  <table class="tbl"><thead><tr><th>Category</th><th>Items</th><th>Cost</th><th>Value</th></tr></thead><tbody>
+  ${byCat.map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v.n}</td><td>${money(v.c)}</td><td class="strong">${money(v.v)}</td></tr>`).join("")}
+  </tbody></table></div>`;
+
+ h+=(()=>{
+  const val=c=>n(c.vRaw)*(n(c.qty)||1);
+  const groups={"Single cards":[],"Sealed product":[],"Funko Pops":[]};
+  st.owned.forEach(c=>{
+   const k=c.cat==="Sealed product"?"Sealed product":c.cat==="Funko Pop"?"Funko Pops":"Single cards";
+   groups[k].push(c);
+  });
+  const rows=Object.entries(groups).filter(([,l])=>l.length);
+  if(rows.length<2)return"";
+  return `<div class="section"><div class="sec-hd"><h2>By format</h2></div>
+   <table class="tbl"><thead><tr><th>Format</th><th>Items</th><th>Value</th><th>Average</th></tr></thead><tbody>
+   ${rows.map(([k,l])=>{const v=l.reduce((a,c)=>a+val(c),0);
+    return `<tr><td>${k}</td><td>${l.length}</td><td class="strong">${money(v)}</td>
+     <td>${money(v/l.length)}</td></tr>`;}).join("")}
+   </tbody></table>
+   <p class="note">Grading applies to single cards only — sealed product and figures are left out of the Grading tab.</p></div>`;
+ })();
+
+ if(st.unpriced)h+=`<div class="warn">${st.unpriced} items have no price yet — portfolio value is understated until you fill them in.</div>`;
  h+=(()=>{
   const priced=st.owned.filter(c=>n(c.vRaw)>0).sort((a,b)=>n(b.vRaw)-n(a.vRaw));
   if(priced.length<5)return"";
@@ -1406,10 +1467,7 @@ function viewMoney(st){
    ${stale?`<tr><td>Price older than ${esc(S.settings.staleDays)} days</td><td>${stale}</td></tr>`:""}
   </tbody></table></div>`:""}
 
- <div class="section"><div class="sec-hd"><h2>By category</h2><span>${byCat.length}</span></div>
-  <table class="tbl"><thead><tr><th>Category</th><th>Cards</th><th>Cost</th><th>Value</th></tr></thead><tbody>
-  ${byCat.map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v.n}</td><td>${money(v.c)}</td><td style="font-weight:600">${money(v.v)}</td></tr>`).join("")}
-  </tbody></table></div>`;
+`;
  if(st.sold.length)h+=`<div class="section"><div class="sec-hd"><h2>Sold</h2><span>${st.sold.length}</span></div>
   <table class="tbl"><thead><tr><th>Card</th><th>Sold</th><th>Net</th></tr></thead><tbody>
   ${st.sold.map(c=>{const net=n(c.salePrice)*(1-n(S.settings.feePct)/100)-n(c.cost);
@@ -1419,154 +1477,136 @@ function viewMoney(st){
 }
 
 function viewSetup(){
- return`<div class="pane">
- <div class="section"><div class="sec-hd"><h2>Photos</h2></div>
-  <p class="note">Open any card and tap Front or Back to shoot it. Photos upload to your Supabase project and get real public URLs, so the listing export carries links eBay and Whatnot can load directly. Nothing to configure.</p></div>
+ const owned=S.cards.filter(c=>c.status!=="sold");
+ const sec=(title,count,body,open)=>`<details class="sec"${open?" open":""}>
+  <summary><span class="sec-t">${title}</span>${count!==undefined&&count!==""?`<span class="sec-n">${count}</span>`:""}</summary>
+  <div class="sec-b">${body}</div></details>`;
 
- <div class="section"><div class="sec-hd"><h2>GOATs</h2><span>${goatNames().length}</span></div>
-  <p class="note">Cards, Show, GOATs filters to these names. Separate with commas — add or remove whoever you like.</p>
-  ${fld("The list","goats",S.settings.goats,"","set","area")}</div>
+ /* ---------- collection identity ---------- */
+ const avatar=S.settings.avatar
+  ? `<img class="av" src="${esc(S.settings.avatar)}" alt="">`
+  : `<div class="av ph">${esc((S.settings.nickname||"?").trim().charAt(0).toUpperCase())}</div>`;
+ const collection=`
+  <div class="avrow">${avatar}
+   <div class="avtext">
+    <div class="avname">${esc(S.settings.nickname||"Name your collection")}</div>
+    <div class="avsub">${owned.length} items${user?" · "+esc(user.email):""}</div>
+   </div></div>
+  <button class="btn ghost wide" data-act="pickavatar">${S.settings.avatar?"Change photo":"Add a photo"}</button>
+  ${S.settings.avatar?`<button class="btn ghost wide" data-act="dropavatar">Remove photo</button>`:""}
+  ${fld("Collection name","nickname",S.settings.nickname,"Raf's Vault","set")}
+  <p class="note">Shows in the top right of every screen and on the listing sheet when you export.</p>`;
 
- <div class="section"><div class="sec-hd"><h2>Collection</h2></div>
-  <p class="note">Shows in the top right, and on the listing sheet when you export.</p>
-  ${fld("Collection nickname","nickname",S.settings.nickname,"Raf's Collection","set")}</div>
+ /* ---------- goats ---------- */
+ const goats=`<p class="note">Items, Show, GOATs filters to these names. Commas between them.</p>
+  ${fld("The list","goats",S.settings.goats,"","set","area")}`;
 
- ${(()=>{
-  if(!acct)return `<div class="section"><div class="sec-hd"><h2>Credit</h2></div>
-   <button class="btn ghost wide" data-act="loadacct">Load my usage</button></div>`;
+ /* ---------- credit ---------- */
+ let credit;
+ if(!acct){
+  credit=`<button class="btn ghost wide" data-act="loadacct">Load my usage</button>`;
+ }else{
   const b=acct.bal, log=acct.log||[];
-  const sum=(f,k)=>log.filter(f).reduce((a,x)=>a+n(x[k]),0);
-  const api=sum(()=>true,"api_cost"), fee=sum(()=>true,"slab_fee"), tot=sum(()=>true,"total");
+  const tot=log.reduce((a,x)=>a+n(x.total),0);
+  const api=log.reduce((a,x)=>a+n(x.api_cost),0);
+  const fee=log.reduce((a,x)=>a+n(x.slab_fee),0);
   const scans=log.filter(x=>x.kind==="scan").length;
   const prices=log.filter(x=>x.kind==="reprice").length;
   const free=log.filter(x=>x.path==="direct").length;
-  const day={};
-  log.forEach(x=>{const d=String(x.at||"").slice(0,10);day[d]=(day[d]||0)+n(x.total);});
-  const days=Object.entries(day).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,7);
-  const credit=b?n(b.credit):0;
-  const unlimited=b&&b.unlimited;
-  const low=!unlimited&&credit<1;
-  return `<div class="section"><div class="sec-hd"><h2>Credit</h2>
-    <span>${unlimited?"unlimited":money4(credit)}</span></div>
-   ${unlimited?`<p class="note">This account is not metered.</p>`
-    :`<div class="big" style="padding:16px 18px">
-      <div class="bl2">Credit remaining</div>
-      <div class="bv2" style="font-size:30px">${money4(credit)}</div>
-      <div class="bd">${tot>0?"about "+Math.floor(credit/(tot/Math.max(1,log.length)))+" more items at your current rate":"nothing used yet"}</div>
-     </div>
-     ${low?`<div class="warn">Credit is nearly gone. Scanning and pricing stop at zero.</div>`:""}`}
-
-   <div class="sec-hd" style="margin-top:16px"><h2>Last 30 days</h2><span>${log.length} calls</span></div>
+  const cr=b?n(b.credit):0, unl=b&&b.unlimited;
+  const per=log.length?tot/log.length:0;
+  credit=`${unl
+   ?`<div class="kpi"><div class="kpi-l">Credit</div><div class="kpi-v">Unlimited</div>
+     <div class="kpi-s">This account is not metered</div></div>`
+   :`<div class="kpi${cr<1?" warn":""}"><div class="kpi-l">Credit remaining</div>
+     <div class="kpi-v">${money4(cr)}</div>
+     <div class="kpi-s">${per>0?"about "+Math.floor(cr/per)+" more items at your rate":"nothing used yet"}</div></div>
+    ${cr<1?`<div class="warn">Scanning and pricing stop at zero.</div>`:""}`}
    <table class="tbl"><tbody>
     <tr><td>Scans</td><td>${scans}</td></tr>
-    <tr><td>Price lookups</td><td>${prices}${prices?" ("+free+" free)":""}</td></tr>
+    <tr><td>Price lookups</td><td>${prices}${prices?` (${free} free)`:""}</td></tr>
     <tr><td>Anthropic cost</td><td>${money4(api)}</td></tr>
     <tr><td>Slab fee</td><td>${money4(fee)}</td></tr>
-    <tr><td class="strong">Total charged</td><td class="strong">${money4(tot)}</td></tr>
+    <tr><td class="strong">Charged, last 30 days</td><td class="strong">${money4(tot)}</td></tr>
    </tbody></table>
-   ${days.length?`<div class="sec-hd" style="margin-top:16px"><h2>By day</h2></div>
-   <table class="tbl"><tbody>${days.map(([d,v])=>
-    `<tr><td>${esc(d)}</td><td>${money4(v)}</td></tr>`).join("")}</tbody></table>`:""}
-   <p class="note">Charged at Anthropic's actual rates plus one cent per scan or lookup. Price lookups that read the guide page directly cost nothing but the penny.</p>
-   <button class="btn ghost wide" data-act="loadacct">Refresh</button>
-  </div>`;})()}
+   <button class="btn ghost wide" data-act="loadacct">Refresh</button>`;
+ }
 
- <div class="section"><div class="sec-hd"><h2>Account</h2></div>
-  <p class="note">Signed in as <b>${esc(user?user.email:"")}</b>. Cards and photos sync to your Supabase project, so any device you sign in from shows the same collection.</p>
-  <button class="btn ghost wide" data-act="pull">Refresh from the database</button>
-  <button class="btn ghost wide" data-act="signout">Sign out</button></div>
-
- <div class="section"><div class="sec-hd"><h2>Starter data</h2></div>
-  <p class="note">The 18 graded slabs from your original list, with researched values. Adds any that aren't already here — it won't duplicate.</p>
-  <button class="btn ghost wide" data-act="seed">Load the 18 graded slabs</button></div>
-
- ${(()=>{const t=S.settings.usage;
-  if(!t||(!n(t.scans)&&!n(t.prices)))return `<div class="section"><div class="sec-hd"><h2>Spend</h2></div>
-   <p class="note">Nothing recorded yet. Every scan and price lookup from here on gets counted.</p></div>`;
-  const total=spend(t), calls=n(t.scans)+n(t.prices);
-  const processed=Math.max(n(t.scans),n(t.prices))||1;
-  const perCard=total/processed;
-  const perPrice=n(t.prices)?(n(t.out)*RATE.out+n(t.searches)*RATE.search+n(t.in)*RATE.in)/calls:0;
-  return `<div class="section"><div class="sec-hd"><h2>Spend</h2><span>${money4(total)}</span></div>
-  <table class="tbl"><tbody>
-   <tr><td>Cards scanned</td><td>${n(t.scans)}</td></tr>
-   <tr><td>Price lookups</td><td>${n(t.prices)}</td></tr>
-   <tr><td>Web searches</td><td>${n(t.searches)}${n(t.prices)?" ("+(n(t.searches)/n(t.prices)).toFixed(1)+" per lookup)":""}</td></tr>
-   <tr><td>Input tokens</td><td>${n(t.in).toLocaleString()}</td></tr>
-   <tr><td>Output tokens</td><td>${n(t.out).toLocaleString()}</td></tr>
-   <tr><td>Search cost</td><td>${money4(n(t.searches)*RATE.search)}</td></tr>
-   <tr><td>Token cost</td><td>${money4(n(t.in)*RATE.in+n(t.out)*RATE.out)}</td></tr>
-   <tr><td>Priced free (direct)</td><td>${n(t.direct||0)}${n(t.prices)?" of "+n(t.prices):""}</td></tr>
-   <tr><td class="strong">Per card processed</td><td class="strong">${money4(perCard)}</td></tr>
-   ${n(t.prices)?`<tr><td>Per price lookup</td><td>${money4(total/n(t.prices))}</td></tr>`:""}
-  </tbody></table>
-  <p class="note">Measured from what the API actually reported, at ${"$"}2 per million input and ${"$"}10 per million output tokens, plus ${"$"}0.01 per web search. Counts only what this device has run.</p>
-  <button class="btn ghost wide" data-act="resetusage">Reset the counter</button></div>`;})()}
-
- <div class="section"><div class="sec-hd"><h2>Prices</h2></div>
-  ${(()=>{const st=S.cards.filter(isStale);const un=S.cards.filter(c=>c.status!=="sold"&&!n(c.vRaw)&&(c.subject||c.set));
-   return `<p class="note">${st.length} card${st.length===1?"":"s"} priced more than ${esc(S.settings.staleDays)} days ago${un.length?`, and ${un.length} never priced`:""}.</p>
-   ${st.length?`<button class="btn wide" data-act="repricestale">Refresh ${st.length} stale price${st.length===1?"":"s"}</button>`:""}
-   ${un.length?`<button class="btn ghost wide" data-act="priceunpriced">Price ${un.length} unpriced card${un.length===1?"":"s"}</button>`:""}`;})()}
+ /* ---------- prices, including the bulk refresh ---------- */
+ const staleList=S.cards.filter(isStale);
+ const unpriced=S.cards.filter(c=>c.status!=="sold"&&!n(c.vRaw)&&(c.subject||c.set));
+ const verified=owned.filter(c=>c.verified).length;
+ const prices=`
+  <p class="note">${staleList.length} priced more than ${esc(S.settings.staleDays)} days ago${
+   unpriced.length?`, ${unpriced.length} never priced`:""}${verified?`, ${verified} checked by you and left alone`:""}.</p>
+  ${staleList.length?`<button class="btn wide" data-act="repricestale">Refresh ${staleList.length} stale price${staleList.length===1?"":"s"} (~${money4(avgLookupCost()*staleList.length)})</button>`:""}
+  ${unpriced.length?`<button class="btn ghost wide" data-act="priceunpriced">Price ${unpriced.length} unpriced (~${money4(avgLookupCost()*unpriced.length)})</button>`:""}
+  <button class="btn ghost wide" data-act="repriceall">Refresh everything (~${money4(avgLookupCost()*owned.length)})</button>
   ${fld("Call a price stale after (days)","staleDays",S.settings.staleDays,"90","set","number")}
-  <p class="note">Refreshing skips the photo, so it costs roughly 1-3 cents an item. Worth doing monthly on your best ones, quarterly on the rest, and always right before you list something.</p></div>
+  <p class="note">Refreshing skips the photo. Lookups the guide answers directly cost only the penny. Anything you have checked yourself is skipped.</p>`;
 
- <div class="section"><div class="sec-hd"><h2>Numbers</h2></div>
+ /* ---------- numbers ---------- */
+ const numbers=`
+  ${fld("Grading cost per item (incl. shipping)","gradingCost",S.settings.gradingCost,"","set","number")}
   ${(()=>{const opts=["PSA","BGS","SGC","CGC"];
    return `<label class="fld"><span class="fld-l">Who you send cards to</span>
    <select class="fld-i" data-set="gradeWith">${opts.map(o=>
-    `<option value="${o}"${S.settings.gradeWith===o?" selected":""}>${o}</option>`).join("")}</select></label>
-   <p class="note">Grading projections use this grader's 10 price when the guide publishes one.</p>`;})()}
-  ${fld("Grading cost per card (incl. shipping)","gradingCost",S.settings.gradingCost,"","set","number")}
+    `<option value="${o}"${S.settings.gradeWith===o?" selected":""}>${o}</option>`).join("")}</select></label>`;})()}
   ${fld("Selling fees %","feePct",S.settings.feePct,"","set","number")}
-  ${fld("Currency symbol","currency",S.settings.currency,"$","set")}</div>
+  ${fld("Currency symbol","currency",S.settings.currency,"$","set")}`;
 
- <div class="section"><div class="sec-hd"><h2>Move your data</h2></div>
-  <button class="btn wide" data-act="exp-full">Export full inventory (CSV)</button>
+ /* ---------- data ---------- */
+ const data=`
+  <button class="btn wide" data-act="exp-full">Export everything (CSV)</button>
   <button class="btn ghost wide" data-act="exp-list">Export listing sheet (CSV)</button>
   <button class="btn ghost wide" data-act="imp">Import a CSV</button>
-  <p class="note">Both open straight in Excel or Google Sheets. The listing sheet is shaped for bulk upload to eBay or Whatnot: title, price, photo links. Export regularly — this is your backup.</p></div>
+  <p class="note">Both open in Excel or Sheets. Export now and then — it is the one backup nobody can revoke.</p>`;
 
- <div class="section"><div class="sec-hd"><h2>Photo storage</h2></div>
-  <p class="note">${storeInfo?`Using <b>${storeInfo.used}</b> of about <b>${storeInfo.quota}</b> available (${storeInfo.pct}%).${storeInfo.persisted?" Protected from automatic cleanup.":""}`:"Checking…"}</p>
-  ${storeInfo&&!storeInfo.persisted?`<button class="btn ghost wide" data-act="persist">Protect photos from cleanup</button>`:""}
-  <p class="note">Photos live on this device at roughly 250KB each. Browsers can evict storage when space runs low — tap the button above to ask for protection, and keep CSV backups regardless.</p></div>
-
- ${Object.keys(pending).length?`<div class="section"><div class="sec-hd"><h2>Unsaved cards</h2><span>${Object.keys(pending).length}</span></div>
-  <p class="note">These are on this device but not yet in the database. They won't appear on your other devices until they save.</p>
-  <button class="btn wide" data-act="retry">Retry saving</button></div>`:""}
-
- ${(()=>{const d=findSkuDupes();return d.length?`<div class="section">
-  <div class="sec-hd"><h2>Duplicate SKUs</h2><span>${d.length}</span></div>
-  <p class="note">${d.length} card${d.length===1?"":"s"} share a SKU with another. Renumbering gives each its own — photos and listings key off the SKU, so duplicates cause mix-ups when you sell.</p>
-  <button class="btn wide" data-act="fixsku">Renumber duplicate SKUs</button></div>`:"";})()}
-
- ${(()=>{const g=findDupes();return g.length?`<div class="section">
-  <div class="sec-hd"><h2>Duplicates</h2><span>${g.length}</span></div>
-  <p class="note">${g.length} card${g.length===1?"":"s"} appear more than once. Merging keeps the most complete record and folds in anything the others have.</p>
-  <button class="btn wide" data-act="dedupe">Merge duplicates</button></div>`:"";})()}
-
- ${(()=>{const stale=S.cards.filter(c=>c.review&&c.evidence&&c.evidence.current&&
+ /* ---------- tidying ---------- */
+ const dupes=findDupes().length, skuDupes=findSkuDupes().length;
+ const unsaved=Object.keys(pending).length;
+ const flags=S.cards.filter(c=>c.review&&c.evidence&&c.evidence.current&&
    ["sales","guide"].indexOf(c.evidence.current.method)>-1).length;
-  return stale?`<div class="section"><div class="sec-hd"><h2>Review flags</h2><span>${stale}</span></div>
-  <p class="note">${stale} items are flagged for review but were priced from sales or a market guide. Earlier builds flagged almost everything; these can be cleared.</p>
-  <button class="btn ghost wide" data-act="clearflags">Clear ${stale} unnecessary flags</button></div>`:"";})()}
+ const tidyBits=[
+  unsaved?`<p class="note">${unsaved} items are on this device but not in the database.</p>
+   <button class="btn wide" data-act="retry">Retry saving ${unsaved}</button>`:"",
+  dupes?`<p class="note">${dupes} item${dupes===1?"":"s"} appear more than once.</p>
+   <button class="btn ghost wide" data-act="dedupe">Merge ${dupes} duplicate${dupes===1?"":"s"}</button>`:"",
+  skuDupes?`<p class="note">${skuDupes} share a SKU with another item.</p>
+   <button class="btn ghost wide" data-act="fixsku">Renumber ${skuDupes}</button>`:"",
+  flags?`<p class="note">${flags} carry a review flag from an older build.</p>
+   <button class="btn ghost wide" data-act="clearflags">Clear ${flags} flag${flags===1?"":"s"}</button>`:"",
+ ].filter(Boolean);
+ const tidyCount=(unsaved?1:0)+(dupes?1:0)+(skuDupes?1:0)+(flags?1:0);
+ const tidy=tidyBits.length?tidyBits.join(""):`<p class="note">Nothing needs tidying.</p>`;
 
- <div class="section"><div class="sec-hd"><h2>Diagnostics</h2></div>
-  <p class="note">Checks each link in the chain separately, without spending any API credit.</p>
+ /* ---------- diagnostics ---------- */
+ const diag=`
+  <p class="note">Build ${VERSION}. Tests each link in the chain without spending anything.</p>
   <button class="btn wide" data-act="diag">Run connection test</button>
   <button class="btn ghost wide" data-act="pricetest">Test a price lookup</button>
-  <button class="btn ghost wide" data-act="pricetest2">Test pricing one of my cards</button>
-  <p class="note">The price test runs one real lookup on a known card and prints the raw reply. Costs a few cents.</p>
-  ${window._diag?`<pre class="diag">${esc(window._diag)}</pre>`:""}</div>
+  <button class="btn ghost wide" data-act="pricetest2">Test pricing one of mine</button>
+  ${window._diag?`<pre class="diag">${esc(window._diag)}</pre>`:""}
+  <button class="btn ghost wide" data-act="hardrefresh">Clear cache and reload</button>`;
 
- <div class="section"><div class="sec-hd"><h2>App version</h2></div>
-  <p class="note">Running build <b>${VERSION}</b>. Each upload increments it by one — if the number hasn't moved, you're on a cached copy.</p>
-  <button class="btn wide" data-act="hardrefresh">Clear cache and reload</button></div>
+ /* ---------- account ---------- */
+ const account=`
+  <p class="note">Signed in as <b>${esc(user?user.email:"")}</b>. Everything syncs, so any device you sign in from shows the same collection.</p>
+  <button class="btn ghost wide" data-act="pull">Refresh from the database</button>
+  <button class="btn ghost wide" data-act="seed">Load the 18 starter slabs</button>
+  <button class="btn ghost wide" data-act="signout">Sign out</button>
+  <p class="note">On iPhone, add to your home screen with Share → Add to Home Screen. On Android, Chrome offers to install it.</p>`;
 
- <div class="section"><div class="sec-hd"><h2>This app</h2></div>
-  <button class="btn wide" data-act="install" id="installbtn">Add to home screen</button>
-  <p class="note">On iPhone the button won't do it — tap Share, then <b>Add to Home Screen</b>. Your collection lives in Supabase, but your sign-in lives on this device. Keep CSV backups.</p></div>
+ return `<div class="pane setup">
+  ${sec("Collection","",collection,true)}
+  ${sec("GOATs",goatNames().length,goats)}
+  ${sec("Credit","",credit)}
+  ${sec("Prices",staleList.length+unpriced.length||"",prices)}
+  ${sec("Numbers","",numbers)}
+  ${sec("Import and export","",data)}
+  ${sec("Tidying up",tidyCount||"",tidy)}
+  ${sec("Diagnostics","",diag)}
+  ${sec("Account","",account)}
  </div>`;
 }
 
@@ -1916,6 +1956,10 @@ document.addEventListener("click",async e=>{
    localStorage.removeItem(CACHE);render();break;
   case"pull":await pullAll();await loadAccount();render();toast("Refreshed");break;
   case"loadacct":await loadAccount();render();break;
+  case"pickavatar":document.getElementById("avin").click();break;
+  case"dropavatar":S.settings.avatar="";pushSettings();render();break;
+  case"repriceall":{const set=S.cards.filter(c=>c.status!=="sold"&&(c.subject||c.set));
+   if(confirmSpend(set.length))queueReprice(set);break;}
   case"fixsku":{
    const k=findSkuDupes().length;
    if(!k){toast("Every SKU is unique");break;}
@@ -2103,6 +2147,21 @@ document.addEventListener("change",async e=>{
   const fr=new FileReader();fr.onload=()=>{try{importCSV(String(fr.result));}
    catch(_){toast("Import failed — needs a CSV with a header row");}};
   fr.readAsText(e.target.files[0]);e.target.value="";}
+ if(e.target.id==="avin"&&e.target.files[0]){
+  toast("Uploading…");
+  try{
+   const d=await compress(e.target.files[0],400,0.8);
+   const blob=await (await fetch(d)).blob();
+   const path=user.id+"/avatar.jpg";
+   const base=cfg.url.replace(/\/+$/,"");
+   const r=await fetch(base+"/storage/v1/object/cards/"+path,{method:"POST",
+    headers:{"apikey":cfg.key,"Authorization":"Bearer "+(authToken||cfg.key),
+     "Content-Type":"image/jpeg","x-upsert":"true"},body:blob});
+   if(!r.ok)throw new Error("upload failed");
+   S.settings.avatar=base+"/storage/v1/object/public/cards/"+path+"?v="+Date.now();
+   pushSettings();render();toast("Photo saved");
+  }catch(_){toast("Could not upload that photo");}
+  e.target.value="";return;}
  if(e.target.id==="picin"&&e.target.files[0]&&editing){
   toast("Uploading photo…");
   try{const d=await compress(e.target.files[0]);
