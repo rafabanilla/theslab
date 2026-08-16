@@ -340,7 +340,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="55";
+const VERSION="56";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -483,7 +483,7 @@ function gradeCall(c){
 
 /* ============ cloud storage (Supabase) ============ */
 const CFG="theslab.cfg", CACHE="theslab.cache";
-let sb=null, user=null, syncState="", cfg=null, authToken=null, pending={};
+let sb=null, user=null, syncState="", cfg=null, authToken=null, pending={}, acct=null;
 
 /* Baked-in project. The anon key is designed to be public — row-level
    security in schema.sql is what protects the data. Never put the
@@ -701,6 +701,17 @@ async function fixSkuDupes(){
  save();
  return dupes.length;
 }
+async function loadAccount(){
+ if(!user||!cfg)return;
+ try{
+  const b=await rest("/rest/v1/balance?select=credit,unlimited&user_id=eq."+user.id,
+   {method:"GET",headers:restHeaders()},15000,"balance");
+  const since=new Date(Date.now()-30*86400000).toISOString();
+  const u=await rest("/rest/v1/usage_log?select=kind,path,api_cost,slab_fee,total,at&at=gte."+since+
+   "&order=at.desc&limit=500",{method:"GET",headers:restHeaders()},20000,"usage");
+  acct={bal:(b&&b[0])||null,log:u||[]};
+ }catch(_){acct=null;}
+}
 async function retryPending(){
  const ids=Object.keys(pending);
  if(!ids.length||!sb||!user)return 0;
@@ -808,6 +819,7 @@ async function edgeCall(name,payload,ms){
  if(r.status===404)throw new Error("No '"+name+"' function deployed yet — add it in Supabase → Edge Functions");
  let j;
  try{j=await r.json();}catch(_){throw new Error("The "+name+" function returned something unreadable");}
+ if(r.status===402){const e=new Error(j.error||"Out of credit");e.needsCredit=true;throw e;}
  if(!r.ok){const extra=j.got?(" — model said: "+String(j.got).slice(0,160)):"";
   throw new Error((j.error||(name+" failed, HTTP "+r.status))+extra);}
  return j;
@@ -1011,6 +1023,7 @@ async function repriceOne(id){
  }catch(e){
   rFail++;
   const msg=String(e&&e.message||e||"Refresh failed");
+  if(e&&e.needsCredit){rq=[];toast(msg);loadAccount().then(render);}
   const card=S.cards.find(x=>x.id===id);
   if(card){
    card.evidence={error:msg,checkedOn:new Date().toISOString().slice(0,10)};
@@ -1417,6 +1430,46 @@ function viewSetup(){
  <div class="section"><div class="sec-hd"><h2>Collection</h2></div>
   <p class="note">Shows in the top right, and on the listing sheet when you export.</p>
   ${fld("Collection nickname","nickname",S.settings.nickname,"Raf's Collection","set")}</div>
+
+ ${(()=>{
+  if(!acct)return `<div class="section"><div class="sec-hd"><h2>Credit</h2></div>
+   <button class="btn ghost wide" data-act="loadacct">Load my usage</button></div>`;
+  const b=acct.bal, log=acct.log||[];
+  const sum=(f,k)=>log.filter(f).reduce((a,x)=>a+n(x[k]),0);
+  const api=sum(()=>true,"api_cost"), fee=sum(()=>true,"slab_fee"), tot=sum(()=>true,"total");
+  const scans=log.filter(x=>x.kind==="scan").length;
+  const prices=log.filter(x=>x.kind==="reprice").length;
+  const free=log.filter(x=>x.path==="direct").length;
+  const day={};
+  log.forEach(x=>{const d=String(x.at||"").slice(0,10);day[d]=(day[d]||0)+n(x.total);});
+  const days=Object.entries(day).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,7);
+  const credit=b?n(b.credit):0;
+  const unlimited=b&&b.unlimited;
+  const low=!unlimited&&credit<1;
+  return `<div class="section"><div class="sec-hd"><h2>Credit</h2>
+    <span>${unlimited?"unlimited":money4(credit)}</span></div>
+   ${unlimited?`<p class="note">This account is not metered.</p>`
+    :`<div class="big" style="padding:16px 18px">
+      <div class="bl2">Credit remaining</div>
+      <div class="bv2" style="font-size:30px">${money4(credit)}</div>
+      <div class="bd">${tot>0?"about "+Math.floor(credit/(tot/Math.max(1,log.length)))+" more items at your current rate":"nothing used yet"}</div>
+     </div>
+     ${low?`<div class="warn">Credit is nearly gone. Scanning and pricing stop at zero.</div>`:""}`}
+
+   <div class="sec-hd" style="margin-top:16px"><h2>Last 30 days</h2><span>${log.length} calls</span></div>
+   <table class="tbl"><tbody>
+    <tr><td>Scans</td><td>${scans}</td></tr>
+    <tr><td>Price lookups</td><td>${prices}${prices?" ("+free+" free)":""}</td></tr>
+    <tr><td>Anthropic cost</td><td>${money4(api)}</td></tr>
+    <tr><td>Slab fee</td><td>${money4(fee)}</td></tr>
+    <tr><td class="strong">Total charged</td><td class="strong">${money4(tot)}</td></tr>
+   </tbody></table>
+   ${days.length?`<div class="sec-hd" style="margin-top:16px"><h2>By day</h2></div>
+   <table class="tbl"><tbody>${days.map(([d,v])=>
+    `<tr><td>${esc(d)}</td><td>${money4(v)}</td></tr>`).join("")}</tbody></table>`:""}
+   <p class="note">Charged at Anthropic's actual rates plus one cent per scan or lookup. Price lookups that read the guide page directly cost nothing but the penny.</p>
+   <button class="btn ghost wide" data-act="loadacct">Refresh</button>
+  </div>`;})()}
 
  <div class="section"><div class="sec-hd"><h2>Account</h2></div>
   <p class="note">Signed in as <b>${esc(user?user.email:"")}</b>. Cards and photos sync to your Supabase project, so any device you sign in from shows the same collection.</p>
@@ -1861,7 +1914,8 @@ document.addEventListener("click",async e=>{
    authBusy=false;render();break;}
   case"signout":await sb.auth.signOut();user=null;authToken=null;S.cards=[];
    localStorage.removeItem(CACHE);render();break;
-  case"pull":await pullAll();render();toast("Refreshed");break;
+  case"pull":await pullAll();await loadAccount();render();toast("Refreshed");break;
+  case"loadacct":await loadAccount();render();break;
   case"fixsku":{
    const k=findSkuDupes().length;
    if(!k){toast("Every SKU is unique");break;}
@@ -2097,6 +2151,7 @@ async function checkSession(){
   authToken=data.session.access_token;
   render();
   try{await pullAll();}catch(_){}
+  loadAccount().then(render);
   render();
  }
 }
