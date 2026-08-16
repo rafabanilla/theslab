@@ -170,6 +170,8 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .gnet{font-family:var(--mono);font-size:13px;font-weight:600;margin-top:9px;color:var(--mute)}
 .gnet.pos{color:var(--green)}
 .gnet-l{font-family:var(--body);font-size:11px;font-weight:400;color:var(--mute)}
+.gdrop{background:#FDF0D9;border-left:3px solid var(--gold);padding:7px 9px;margin-top:8px;
+ font-size:11px;line-height:1.5;color:#5C4409}
 .grow-empty{font-size:12px;color:var(--mute);margin-top:6px;line-height:1.5}
 
 .bigstat{background:var(--ink);color:#fff;padding:20px 18px;border-radius:2px}
@@ -391,7 +393,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="60";
+const VERSION="62";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -496,36 +498,44 @@ function photoURL(c,w){return (w==="F"?c.photoF:c.photoB)||"";}
 function title(c){return[c.year,c.set,c.subject,c.num?"#"+c.num:"",c.variant,c.serial?"/"+c.serial:"",
  c.graded?c.grader+" "+c.grade:"RAW"].filter(Boolean).join(" ");}
 
+/* A published tier this far above the raw price is a misread page, not a market.
+   Junk-wax tens top out near 70x raw; modern parallels can reach a few hundred.
+   Anything past these is thrown away rather than fed into the maths. */
+const TIER_CAP={g8:30,g9:80,g95:150,g10:300};
+
 function gradeCall(c){
  if(c.graded||isItem(c))return null;
  const raw=n(c.vRaw);
  let v9=n(c.v9),v10=n(c.v10);
- // identical figures across tiers mean the source was misread — treat as unknown
  if(v9&&raw&&v9<=raw)v9=0;
  if(v10&&(v10<=raw||(v9&&v10<=v9)))v10=0;
  if(!raw&&!v9&&!v10)return{verdict:"unpriced",net:0};
 
- // Published ladder only. Never invent a grade price — an imagined PSA 10
- // produces an imagined upside, which is worse than saying nothing.
  const tv=tierValues(c);
  const pub={g7:tv?n(tv.g7):0, g8:tv?n(tv.g8):0, g9:tv?n(tv.g9):v9,
             g95:tv?n(tv.g95):0, g10:tv?n(tv.g10):v10};
- if(!pub.g9&&!pub.g10)return{verdict:"nograded",net:0,ladder:pub};
+
+ // throw out figures that cannot be real
+ const dropped=[];
+ if(raw>0){
+  ["g8","g9","g95","g10"].forEach(k=>{
+   if(pub[k]&&pub[k]>raw*TIER_CAP[k]){dropped.push(k);pub[k]=0;}
+  });
+ }
+ if(!pub.g9&&!pub.g10)return{verdict:"nograded",net:0,ladder:pub,dropped};
 
  const L=LADDER[c.conf]||LADDER.med;
- // Only outcomes we have a real price for take part. The remaining
- // probability is redistributed across them rather than invented.
- const parts=[["g7",L.g7],["g8",L.g8],["g9",L.g9],["g95",L.g95],["g10",L.g10]]
-  .filter(([k])=>pub[k]>0);
- const mass=parts.reduce((a,[,p])=>a+p,0)+L.below;
- if(!mass)return{verdict:"nograded",net:0,ladder:pub};
- const ev=(parts.reduce((a,[k,p])=>a+p*pub[k],0)+L.below*raw)/mass
-   -n(S.settings.gradingCost);
+ /* No redistribution. A grade with no published price is worth the raw value —
+    missing data must drag the expected value down, never prop it up. */
+ const at=k=>pub[k]>0?pub[k]:raw;
+ const ev=L.g7*at("g7")+L.g8*at("g8")+L.g9*at("g9")+L.g95*at("g95")
+        +L.g10*at("g10")+L.below*raw
+        -n(S.settings.gradingCost);
  const net=ev-raw;
  let verdict="skip";
  if(net>n(S.settings.gradingCost)&&net>raw*.5)verdict="grade";
  else if(net>0)verdict="maybe";
- return{verdict,net,ev,ladder:pub,basis:parts.map(([k])=>k)};
+ return{verdict,net,ev,ladder:pub,dropped};
 }
 
 /* ============ cloud storage (Supabase) ============ */
@@ -1381,7 +1391,9 @@ function growRow({c,g}){
    ${g.verdict==="unpriced"
     ?`<div class="grow-empty">No prices yet. Refresh this one or fill them in.</div>`
     :g.verdict==="nograded"
-     ?`<div class="grow-empty">Priced raw at ${money(raw)}, but no PSA 9 or 10 figure was published — so there is no honest grading call to make.</div>`
+     ?`<div class="grow-empty">Priced raw at ${money(raw)}, but ${g.dropped&&g.dropped.length
+        ?"the published "+g.dropped.map(k=>({g8:"PSA 8",g9:"PSA 9",g95:"PSA 9.5",g10:"PSA 10"})[k]).join(" and ")+" figure was implausibly high against that, so it was thrown out"
+        :"no PSA 9 or 10 figure was published"} — no honest grading call to make.</div>`
      :`<div class="gcells">
         ${cell("Raw",raw)}
         ${cell("PSA 8",L.g8)}
@@ -1390,7 +1402,8 @@ function growRow({c,g}){
        </div>
        <div class="gnet${g.net>0?" pos":""}">
         ${g.net>0?"+":""}${money(g.net)} <span class="gnet-l">expected, after the ${money(S.settings.gradingCost)} fee</span>
-       </div>`}
+       </div>
+       ${g.dropped&&g.dropped.length?`<div class="gdrop">Ignored the ${g.dropped.map(k=>({g8:"PSA 8",g9:"PSA 9",g95:"PSA 9.5",g10:"PSA 10"})[k]).join(" and ")} figure — implausibly high against the raw price, so almost certainly a misread source.</div>`:""}`}
   </div>
  </div>`;
 }
@@ -1725,8 +1738,10 @@ function viewSheet(){
    g.verdict==="grade"?`Worth grading — about ${money(g.net)} more than selling it raw, after the ${money(S.settings.gradingCost)} fee.`
    :g.verdict==="maybe"?`Marginal — roughly ${money(g.net)} of upside. Only worth it if you're sending a batch anyway.`
    :`Not worth grading. The fee eats the gain.`;
+  const LBL={g8:"PSA 8",g9:"PSA 9",g95:"PSA 9.5",g10:"PSA 10"};
   h+=`<div class="verdict v-${g.verdict==="nograded"?"maybe":g.verdict}">${t}${
-   soft&&g.verdict!=="nograded"?` <b>The PSA 9 / 10 figures behind this are estimates, not observed sales — treat the recommendation as provisional.</b>`:""}</div>`;}
+   soft&&g.verdict!=="nograded"?` <b>The PSA 9 / 10 figures behind this are estimates, not observed sales — treat the recommendation as provisional.</b>`:""}${
+   g.dropped&&g.dropped.length?` <b>The published ${g.dropped.map(k=>LBL[k]).join(" and ")} figure was ignored — implausibly high against the raw price, so almost certainly a misread source. Refresh this one.</b>`:""}</div>`;}
  h+=`<div class="divider">Selling</div>
   ${sel("Status","status",c.status,[["owned","In the collection"],["listed","Listed for sale"],["sold","Sold"]])}`;
  if(c.status==="listed")h+=fld("Asking price","listPrice",c.listPrice,"","f","number");
