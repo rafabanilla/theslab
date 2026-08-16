@@ -340,7 +340,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="54";
+const VERSION="55";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -877,8 +877,8 @@ function viewScan(){
  const pend=queue.filter(q=>q.state==="waiting"||q.state==="reading").length;
  const done=queue.filter(q=>q.state==="done").length;
  let h=`<div class="pane"><div class="hero">
-  <h1 class="hero-t">Photograph a card.<br>Get everything else.</h1>
-  <p class="hero-s">Reads the card first, then looks up what it sells for. Cards appear in seconds; prices land a little after. Shoot a stack and let it work.</p>
+  <h1 class="hero-t">Photograph a collectible.<br>Get everything else.</h1>
+  <p class="hero-s">Reads the item first, then looks up what it sells for. Cards, sealed boxes, Funko Pops. Items appear in seconds; prices land a little after. Shoot a stack and let it work.</p>
   <button class="btn big" data-act="shoot">Take a photo</button>
   <button class="btn ghost big" data-act="pick">Choose from library</button></div>`;
  if(queue.length){
@@ -887,7 +887,7 @@ function viewScan(){
    ${q.preview?`<img class="qimg" src="${q.preview}" alt="">`:`<div class="qimg ph"></div>`}
    <div class="qbody"><div class="qname">${esc(q.state==="done"?q.label:q.name)}</div>
    <div class="qstate">${q.state==="waiting"?"waiting":
-    q.state==="reading"?`<span class="pulse">reading the card…</span> <span id="elapsed" class="els">0s</span>`:
+    q.state==="reading"?`<span class="pulse">reading it…</span> <span id="elapsed" class="els">0s</span>`:
     q.state==="done"?(q.conf==="high"?"identified — pricing next":"identified, worth a look — pricing next"):
     `<span class="bad">${esc(q.err)}</span>`}</div></div>
    ${q.state==="done"?`<span class="qdot ${q.conf==="high"?"ok":"warn"}"></span>`:""}
@@ -897,9 +897,9 @@ function viewScan(){
  }
  h+=`<div class="tips">
   <p><b>Shoot it flat, fill the frame.</b> Indirect window light, no flash — glare on gloss is what breaks a read.</p>
-  <p><b>Slabs work too.</b> It reads the grader and grade off the label.</p>
-  <p><b>Check anything flagged amber.</b> Base cards from big sets look alike, and a wrong set means a wrong price.</p>
-  <p><b>Roughly 3-8 cents a card.</b> Billed to your own API account. A thousand cards lands around $30-80.</p></div></div>`;
+  <p><b>Slabs, sealed boxes and Funko Pops work too.</b> It reads a slab label, a product name off a box, or a Pop number off the corner.</p>
+  <p><b>Check anything flagged amber.</b> Base cards from big sets look alike, and a wrong set means a wrong price. Same for sealed products with similar box art.</p>
+  <p><b>Roughly 3-8 cents an item.</b> Billed to your own API account. A thousand items lands around $30-80.</p></div></div>`;
  return h;
 }
 
@@ -1175,7 +1175,7 @@ function viewCollection(){
  const FLAGS=[["goats","GOATs"],["raw","Raw"],["graded","Graded"],["verified","Checked by you"],
   ["unpriced","No price yet"],["stale","Stale prices"],["review","Needs review"],["sold","Sold"]];
  const SORTS=[["newest","Newest scan"],["oldest","Oldest scan"],["value","Value"],
-  ["year","Card year"],["name","Name A-Z"]];
+  ["year","Year"],["name","Name A-Z"]];
  const catCounts={},traitCounts={};
  S.cards.forEach(c=>{
   if(c.status==="sold"&&!wantSold)return;
@@ -1194,7 +1194,7 @@ function viewCollection(){
  let h=`<div class="pane"><input class="search" id="q" placeholder="Search name, set, year, SKU" value="${esc(F.q)}">
   <div class="fbar">
    ${pill("cat","Category",F.cats.length)}
-   ${traitKeys.length?pill("trait","Card type",F.traits.length):""}
+   ${traitKeys.length?pill("trait","Type",F.traits.length):""}
    ${pill("flag","Show",F.flags.length)}
    ${pill("val","Value",F.minVal?1:0)}
    ${pill("sort","Sort",0)}
@@ -1302,7 +1302,7 @@ function viewMoney(st){
   const med=Math.round(vals.length%2?vals[(vals.length-1)/2]:(vals[vals.length/2-1]+vals[vals.length/2])/2);
   return `<div class="section">
    <div class="sec-hd"><h2>Sanity check</h2><span>${share}% in top 10</span></div>
-   <p class="note">Average ${money(avg)} a card, median ${money(med)}. When the median sits far
+   <p class="note">Average ${money(avg)} an item, median ${money(med)}. When the median sits far
    below the average, a handful of big numbers are carrying the total — worth checking those are real.</p>
    <table class="tbl"><thead><tr><th>Card</th><th>Value</th><th>Priced by</th></tr></thead><tbody>
    ${top10.map(c=>`<tr><td>${esc([c.year,c.subject].filter(Boolean).join(" ")||c.sku)}</td>
@@ -1371,10 +1371,10 @@ function viewMoney(st){
     return list.length?`<tr><td>${l}</td><td>${list.length}</td><td>${money(sum(list))}</td>
      <td>${Math.round(sum(list)/(st.value||1)*100)}%</td></tr>`:"";}).join("")}
   </tbody></table>
-  <p class="note">Top 10 cards hold ${money(sum(top10))} — ${Math.round(sum(top10)/(st.value||1)*100)}% of everything.
-   Median card is ${money(med)}, average ${money(owned.length?st.value/owned.length:0)}.</p></div>
+  <p class="note">Top 10 items hold ${money(sum(top10))} — ${Math.round(sum(top10)/(st.value||1)*100)}% of everything.
+   Median item is ${money(med)}, average ${money(owned.length?st.value/owned.length:0)}.</p></div>
 
-  ${Object.keys(traitStat).length?`<div class="section"><div class="sec-hd"><h2>By card type</h2></div>
+  ${Object.keys(traitStat).length?`<div class="section"><div class="sec-hd"><h2>By type</h2></div>
   <table class="tbl"><thead><tr><th>Type</th><th>Cards</th><th>Value</th><th>Average</th></tr></thead><tbody>
    ${Object.entries(traitStat).sort((a,b)=>b[1].v-a[1].v).map(([t,d])=>
     `<tr><td>${esc(TRAIT_LABEL[t]||t)}</td><td>${d.n}</td><td>${money(d.v)}</td>
@@ -1456,7 +1456,7 @@ function viewSetup(){
    ${st.length?`<button class="btn wide" data-act="repricestale">Refresh ${st.length} stale price${st.length===1?"":"s"}</button>`:""}
    ${un.length?`<button class="btn ghost wide" data-act="priceunpriced">Price ${un.length} unpriced card${un.length===1?"":"s"}</button>`:""}`;})()}
   ${fld("Call a price stale after (days)","staleDays",S.settings.staleDays,"90","set","number")}
-  <p class="note">Refreshing skips the photo, so it costs roughly 1-3 cents a card. Worth doing monthly on your best cards, quarterly on the rest, and always right before you list something.</p></div>
+  <p class="note">Refreshing skips the photo, so it costs roughly 1-3 cents an item. Worth doing monthly on your best ones, quarterly on the rest, and always right before you list something.</p></div>
 
  <div class="section"><div class="sec-hd"><h2>Numbers</h2></div>
   ${(()=>{const opts=["PSA","BGS","SGC","CGC"];
@@ -1496,7 +1496,7 @@ function viewSetup(){
  ${(()=>{const stale=S.cards.filter(c=>c.review&&c.evidence&&c.evidence.current&&
    ["sales","guide"].indexOf(c.evidence.current.method)>-1).length;
   return stale?`<div class="section"><div class="sec-hd"><h2>Review flags</h2><span>${stale}</span></div>
-  <p class="note">${stale} cards are flagged for review but were priced from sales or a market guide. Earlier builds flagged almost everything; these can be cleared.</p>
+  <p class="note">${stale} items are flagged for review but were priced from sales or a market guide. Earlier builds flagged almost everything; these can be cleared.</p>
   <button class="btn ghost wide" data-act="clearflags">Clear ${stale} unnecessary flags</button></div>`:"";})()}
 
  <div class="section"><div class="sec-hd"><h2>Diagnostics</h2></div>
@@ -1513,7 +1513,7 @@ function viewSetup(){
 
  <div class="section"><div class="sec-hd"><h2>This app</h2></div>
   <button class="btn wide" data-act="install" id="installbtn">Add to home screen</button>
-  <p class="note">On iPhone the button won't do it — tap Share, then <b>Add to Home Screen</b>. Your cards live on this device, so clearing browser data wipes them. Keep CSV backups.</p></div>
+  <p class="note">On iPhone the button won't do it — tap Share, then <b>Add to Home Screen</b>. Your collection lives in Supabase, but your sign-in lives on this device. Keep CSV backups.</p></div>
  </div>`;
 }
 
