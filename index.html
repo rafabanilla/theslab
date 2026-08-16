@@ -339,7 +339,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="44";
+const VERSION="46";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -376,6 +376,9 @@ const TEN_KEY={PSA:"psa10",BGS:"bgs10",CGC:"cgc10",SGC:"sgc10"};
 function tierValues(c){
  const t=c.evidence&&c.evidence.tiers;
  if(!t)return null;
+ // A ladder where the grades match the raw figure is a misread table, not a market.
+ const asc=[n(t.ungraded),n(t.g8),n(t.g9),n(t.g95)].filter(v=>v>0);
+ for(let i=1;i<asc.length;i++)if(asc[i]<=asc[i-1])return null;
  const tenKey=TEN_KEY[String(S.settings.gradeWith||"PSA").toUpperCase()]||"psa10";
  const v={g7:n(t.g7),g8:n(t.g8),g9:n(t.g9),g95:n(t.g95),g10:n(t[tenKey])||n(t.psa10)};
  // a ladder with nothing on it is no use
@@ -432,7 +435,11 @@ function title(c){return[c.year,c.set,c.subject,c.num?"#"+c.num:"",c.variant,c.s
 
 function gradeCall(c){
  if(c.graded)return null;
- const raw=n(c.vRaw),v9=n(c.v9),v10=n(c.v10);
+ const raw=n(c.vRaw);
+ let v9=n(c.v9),v10=n(c.v10);
+ // identical figures across tiers mean the source was misread — treat as unknown
+ if(v9&&raw&&v9<=raw)v9=0;
+ if(v10&&(v10<=raw||(v9&&v10<=v9)))v10=0;
  if(!raw&&!v9&&!v10)return{verdict:"unpriced",net:0};
 
  // Preferred: the full published ladder, 7 through 10, for the grader you use.
@@ -1450,7 +1457,8 @@ function lookupLinks(c){
  const q=[c.year,c.set,c.subject,c.num?"#"+c.num:"",c.variant].filter(Boolean).join(" ");
  if(!q.trim())return"";
  const e=encodeURIComponent(q);
- const tcg=["Pokemon","Magic","Yu-Gi-Oh","Other TCG"].indexOf(c.cat)>-1;
+ // matches the pricing function: sports go to SportsCardsPro, everything else to PriceCharting
+ const tcg=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA"].indexOf(c.cat)===-1;
  const links=[
   ["eBay sold","https://www.ebay.com/sch/i.html?_nkw="+e+"&LH_Sold=1&LH_Complete=1"],
   [tcg?"PriceCharting":"SportsCardsPro",
