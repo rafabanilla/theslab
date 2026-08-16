@@ -339,7 +339,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="47";
+const VERSION="48";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -564,7 +564,7 @@ async function rest(path,opts,ms,label){
 async function pullAll(force){
  if(!sb||!user)return;
  // A rebuild mid-queue orphans the card being worked on. Wait for quiet.
- if(!force&&(rq.length||scanning)){setSync("sync deferred");return;}
+ if(!force&&(rq.length||rActive||scanning)){setSync("sync deferred");return;}
  setSync("syncing");
  try{
   const data=await rest("/rest/v1/cards?select=*&order=updated_at.desc",
@@ -928,7 +928,7 @@ function isStale(c){
  if(!n(c.vRaw))return false;
  return daysSince(c.pricedOn)>n(S.settings.staleDays||90);
 }
-let rq=[], rBusy=false, rDone=0, rFail=0, rThin=0;
+let rq=[], rDone=0, rFail=0, rThin=0;
 
 async function repriceAPI(c){
  const card={year:c.year,set:c.set,subject:c.subject,num:c.num,variant:c.variant,
@@ -955,27 +955,24 @@ function queueReprice(cards){
  if(!ids.length){toast("Nothing to refresh");return;}
  rq=rq.concat(ids);rDone=0;rFail=0;render();rpump();
 }
-async function rpump(){
- if(rBusy)return;
- if(!rq.length&&!scanning){setTimeout(()=>{if(!rq.length&&!scanning)pullAll().then(render);},1200);}
- if(!rq.length){if(rDone||rFail){
-  toast(`Refreshed ${rDone}${rThin?", "+rThin+" with no sales found":""}${rFail?", "+rFail+" failed":""}`);
-  rDone=0;rFail=0;rThin=0;render();}return;}
- rBusy=true;
- const id=rq[0];
+/* Three cards at a time. Serial was safe but made 300 cards a two-hour job;
+   three is comfortably inside the API's concurrency limits and cuts it to
+   under an hour. Each worker re-resolves its card after the await, so a sync
+   mid-flight still writes to the card on screen. */
+const RLIMIT=3;
+let rActive=0;
+
+async function repriceOne(id){
  const c0=S.cards.find(x=>x.id===id);
- if(!c0){rq.shift();rBusy=false;return rpump();}
+ if(!c0)return;
  try{
   const r=await repriceAPI(c0);
   tally("price",r.usage);
   if(r.path==="direct")tally("direct",{in:0,out:0,searches:0});
-  // A sync during those 20-odd seconds rebuilds S.cards from scratch, orphaning
-  // the object we started with. Always write to whatever is on screen now.
   const c=S.cards.find(x=>x.id===id)||c0;
   const before=n(c.vRaw);
   const ev=r.evidence||null;
   const got=(b)=>ev&&ev[b]&&n(ev[b].median)>0;
-  // only overwrite a value when the refresh actually found sales for it
   if(got("current"))c.vRaw=n(r.vRaw);
   if(!c.graded){
    if(got("psa9"))c.v9=n(r.v9);
@@ -1002,15 +999,32 @@ async function rpump(){
    card.pricedOn=new Date().toISOString().slice(0,10);
    save();pushCard(card);
   }
-  toast(msg);
  }
- rq.shift();rBusy=false;render();
- setTimeout(rpump,400);
+}
+
+function rpump(){
+ while(rActive<RLIMIT&&rq.length){
+  const id=rq.shift();
+  rActive++;
+  repriceOne(id).catch(()=>{}).then(()=>{
+   rActive--;
+   render();
+   rpump();
+  });
+ }
+ if(!rq.length&&rActive===0){
+  if(rDone||rFail){
+   toast(`Refreshed ${rDone}${rThin?", "+rThin+" with no sales found":""}${rFail?", "+rFail+" failed":""}`);
+   rDone=0;rFail=0;rThin=0;
+  }
+  if(!scanning)setTimeout(()=>{if(!rq.length&&!rActive&&!scanning)pullAll().then(render);},1200);
+  render();
+ }
 }
 function repriceBanner(){
- if(!rq.length)return"";
+ if(!rq.length&&!rActive)return"";
  return`<div class="rbanner"><span class="pulse">Refreshing prices…</span>
-  <span class="rcount">${rq.length} left</span>
+  <span class="rcount">${rq.length+rActive} left</span>
   <button class="rstop" data-act="stopreprice">stop</button></div>`;
 }
 
@@ -1846,7 +1860,7 @@ document.addEventListener("click",async e=>{
    if(confirmSpend(set.length))queueReprice(set);break;}
   case"priceunpriced":{const set=S.cards.filter(c=>c.status!=="sold"&&!n(c.vRaw)&&(c.subject||c.set));
    if(confirmSpend(set.length))queueReprice(set);break;}
-  case"stopreprice":rq=[];toast("Stopped");render();break;
+  case"stopreprice":rq=[];toast("Stopping — finishing in-flight cards");render();break;
   case"exp-full":exportCSV("full");break;
   case"exp-list":exportCSV("list");break;
   case"imp":document.getElementById("csvin").click();break;
