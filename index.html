@@ -257,6 +257,7 @@ textarea.fld-i{resize:vertical}
  text-decoration:underline;margin:0 0 6px}
 .ev-path{font-family:var(--mono);font-size:10px;color:var(--mute);margin:-3px 0 7px;letter-spacing:.03em}
 .ev-path.free{color:var(--green);font-weight:600}
+.ev-note{font-size:11.5px;line-height:1.55;color:var(--mute);margin:8px 0 0;font-style:italic}
 .ev-tier{font-family:var(--body);font-size:10.5px;color:var(--mute)}
 .ev-crack{font-size:11.5px;line-height:1.5;color:var(--mute);background:#EDF1F5;
  border-left:3px solid var(--rule);padding:8px 10px;margin:8px 0 0}
@@ -398,7 +399,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="66";
+const VERSION="67";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -1082,7 +1083,8 @@ async function repriceOne(id){
   if(r.source&&/^https?:/.test(String(r.source)))c.srcUrl=r.source;
   c.pricedOn=new Date().toISOString().slice(0,10);
   c.lastMove=before&&got("current")?Math.round(n(c.vRaw)-before):0;
-  if(r.note)c.notes=r.note;
+  // The pricer's commentary belongs with the evidence, not in the user's notes.
+  if(r.note&&ev)ev.note=String(r.note).slice(0,400);
   // Flag only what a person actually needs to look at. Medium confidence is
   // the normal case; flagging it put a warning on 71% of the collection and
   // made the flag worthless.
@@ -1836,6 +1838,7 @@ function evidencePanel(c){
    if(!slab)return"";
    if(raw>=slab)return `<div class="ev-crack warn">The raw copy trades at ${money(raw)} — at or above this slab. The grade is adding nothing.</div>`;
    return `<div class="ev-crack">Raw copies trade at ${money(raw)}, so the grade is worth about ${money(slab-raw)}.</div>`;})()}
+  ${ev.note?`<p class="ev-note">${esc(ev.note)}</p>`:""}
   ${c.srcUrl&&c.pricePath==="direct"?`<a class="ev-src" href="${esc(c.srcUrl)}" target="_blank" rel="noopener">see the page this came from</a>`:""}
   ${c.pricePath?`<div class="ev-path ${c.pricePath==="direct"?"free":""}">${
    c.pricePath==="direct"?(c.srcUrl&&/tcgdex/.test(String(c.srcUrl))
