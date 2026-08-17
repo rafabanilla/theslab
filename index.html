@@ -398,7 +398,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="64";
+const VERSION="66";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -692,6 +692,15 @@ function dupKey(c){
  const cert=String(c.cert||"").replace(/\D/g,"");
  // A cert number is definitive: same cert means the same physical slab.
  if(cert.length>=6)return "cert:"+cert;
+ // TCG numbering is "266/217" — unique within a set and near-unique overall.
+ // Recent sets get guessed at, so matching on set name splits real duplicates
+ // apart. For an ungraded TCG card, the number and name are enough.
+ const tcg=["Pokemon","Magic","Yu-Gi-Oh","Other TCG"].indexOf(c.cat)>-1;
+ if(tcg&&!c.graded&&/\d+\s*\/\s*\d+/.test(String(c.num||""))){
+  return "tcg:"+String(c.num).replace(/\s/g,"")+"|"+
+   String(c.subject||"").trim().toLowerCase()+"|"+
+   traitList(c).slice().sort().join(",");
+ }
  return [c.year,c.set,c.subject,c.num,c.variant,c.graded?c.grader+c.grade:"raw"]
   .map(x=>String(x||"").trim().toLowerCase()).join("|");
 }
@@ -2084,6 +2093,8 @@ document.addEventListener("click",async e=>{
     out.push("reply took  : "+Math.round((Date.now()-t0)/1000)+"s");
     out.push("reply vRaw  : "+JSON.stringify(r.vRaw));
     out.push("methods     : "+(r.methods?JSON.stringify(r.methods):"(missing)"));
+    out.push("path        : "+(r.path||"(missing)"));
+    out.push("free missed : "+(r.directWhy||"(nothing reported)"));
     const ev=r.evidence||null;
     out.push("evidence?   : "+(ev?"yes":"NO - this is the problem"));
     if(ev){
