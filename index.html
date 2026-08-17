@@ -76,6 +76,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .kpi-l{font-size:10px;letter-spacing:.14em;text-transform:uppercase;opacity:.55}
 .kpi-v{font-family:var(--mono);font-weight:600;font-size:26px;margin:3px 0 1px}
 .kpi-s{font-family:var(--mono);font-size:11px;opacity:.75}
+.collname.dim{opacity:.4;text-transform:none;letter-spacing:.04em;font-family:var(--mono);font-size:10px}
 .collname{font-family:var(--disp);font-size:11px;letter-spacing:.11em;color:#fff;opacity:.55;
  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:44vw}
 .ticker{display:flex;margin-top:12px;border-top:1px solid rgba(255,255,255,.16)}
@@ -413,7 +414,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="69";
+const VERSION="70";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -494,6 +495,7 @@ const SEED=[
 /* ============ state ============ */
 let S={cards:[],settings:{...DEF_SET}};
 let tab="scan", editing=null, confirmDel=false, dupReview=false;
+let secOpen={Collection:true};
 let queue=[], scanning=false, storeInfo=null;
 let F={q:"",cats:[],flags:[],traits:[],minVal:0,sort:"newest",limit:50,open:""};
 let photoCache={}, picTarget=null, deferredPrompt=null;
@@ -560,7 +562,7 @@ function gradeCall(c){
 
 /* ============ cloud storage (Supabase) ============ */
 const CFG="theslab.cfg", CACHE="theslab.cache";
-let sb=null, user=null, syncState="", cfg=null, authToken=null, pending={}, acct=null;
+let sb=null, user=null, syncState="", cfg=null, authToken=null, pending={}, acct=null, cacheOwner="";
 
 /* Baked-in project. The anon key is designed to be public — row-level
    security in schema.sql is what protects the data. Never put the
@@ -583,12 +585,25 @@ function initClient(){
 let cacheLoaded=false;
 function save(){
  if(!cacheLoaded)return;            // refuse to persist before we've read what's there
- try{localStorage.setItem(CACHE,JSON.stringify({...S,pending}));}catch(_){}
+ try{localStorage.setItem(CACHE,JSON.stringify({...S,pending,owner:user?user.id:""}));}catch(_){}
 }
 function loadCache(){try{const r=localStorage.getItem(CACHE);if(r){const d=JSON.parse(r);
  S.cards=d.cards||[];S.settings={...DEF_SET,...(d.settings||{})};pending=d.pending||{};
+ cacheOwner=d.owner||"";
  cacheLoaded=true;return true;}}catch(_){}
  S.cards=[];cacheLoaded=true;return false;}
+
+/* Somebody else's collection must never show up under a new sign-in.
+   Wipe everything local when the signed-in user is not who the cache belongs to. */
+function claimCache(){
+ if(!user)return;
+ if(cacheOwner&&cacheOwner!==user.id){
+  S.cards=[];S.settings={...DEF_SET};pending={};acct=null;
+  try{localStorage.removeItem(CACHE);}catch(_){}
+ }
+ cacheOwner=user.id;
+ save();
+}
 
 /* column mapping: JS camelCase <-> Postgres snake_case */
 const MAP={sku:"sku",cat:"cat",year:"year",set:"set_name",subject:"subject",num:"num",
@@ -1212,7 +1227,9 @@ function render(){
   </div>
   <div class="hdr-right">
    <span class="save" id="saveflag"></span>
-   ${S.settings.nickname?`<span class="collname">${esc(S.settings.nickname)}</span>`:""}
+   ${S.settings.nickname
+     ?`<span class="collname">${esc(S.settings.nickname)}</span>`
+     :user?`<span class="collname dim">${esc(String(user.email||"").split("@")[0])}</span>`:""}
    ${S.settings.avatar?`<img class="hdr-av" src="${esc(S.settings.avatar)}" alt="">`:""}
   </div></div>
   <div class="ticker">
@@ -1600,8 +1617,10 @@ function viewMoney(st){
 
 function viewSetup(){
  const owned=S.cards.filter(c=>c.status!=="sold");
- const sec=(title,count,body,open)=>`<details class="sec"${open?" open":""}>
-  <summary><span class="sec-t">${title}</span>${count!==undefined&&count!==""?`<span class="sec-n">${count}</span>`:""}</summary>
+ /* render() rebuilds the page, so a details element would snap shut every time
+    an action fired. Remember what was open and restore it. */
+ const sec=(title,count,body)=>`<details class="sec"${secOpen[title]?" open":""}>
+  <summary data-sec="${esc(title)}"><span class="sec-t">${title}</span>${count!==undefined&&count!==""?`<span class="sec-n">${count}</span>`:""}</summary>
   <div class="sec-b">${body}</div></details>`;
 
  /* ---------- collection identity ---------- */
@@ -1611,7 +1630,7 @@ function viewSetup(){
  const collection=`
   <div class="avrow">${avatar}
    <div class="avtext">
-    <div class="avname">${esc(S.settings.nickname||"Name your collection")}</div>
+    <div class="avname">${esc(S.settings.nickname||(user?String(user.email||"").split("@")[0]:"Name your collection"))}</div>
     <div class="avsub">${owned.length} items${user?" · "+esc(user.email):""}</div>
    </div></div>
   <button class="btn ghost wide" data-act="pickavatar">${S.settings.avatar?"Change photo":"Add a photo"}</button>
@@ -1719,7 +1738,7 @@ function viewSetup(){
   <p class="note">On iPhone, add to your home screen with Share → Add to Home Screen. On Android, Chrome offers to install it.</p>`;
 
  return `<div class="pane setup">
-  ${sec("Collection","",collection,true)}
+  ${sec("Collection","",collection)}
   ${sec("GOATs",goatNames().length,goats)}
   ${sec("Credit","",credit)}
   ${sec("Prices",staleList.length+unpriced.length||"",prices)}
@@ -2024,6 +2043,11 @@ function bumpSku(sku){const m=String(sku).match(/^(.*?)(\d+)$/);
 
 /* ============ events ============ */
 document.addEventListener("click",async e=>{
+ // remember which Setup section the user just opened or closed, so the next
+ // render puts it back the way they left it
+ const sm=e.target.closest&&e.target.closest("summary[data-sec]");
+ if(sm){const k=sm.getAttribute("data-sec");secOpen[k]=!secOpen[k];return;}
+
  // a tap on the dim area outside the sheet closes it
  if(editing&&e.target&&e.target.classList&&e.target.classList.contains("sheet-wrap")){
   editing=null;render();return;}
@@ -2107,7 +2131,7 @@ document.addEventListener("click",async e=>{
      authMsg="Account made, but Supabase is asking for email confirmation. Turn off Authentication → Sign In / Providers → Email → Confirm email, then sign in.";
     }else{
      authMsg="";window._mode="";
-     if(data&&data.session){user=data.session.user;authToken=data.session.access_token;
+     if(data&&data.session){user=data.session.user;authToken=data.session.access_token;claimCache();
       loadCache();render();await pullAll();}
     }
    }catch(e){authMsg=e.message||"Sign in failed";}
@@ -2122,6 +2146,7 @@ document.addEventListener("click",async e=>{
    }catch(e){authMsg="Couldn't send it: "+(e.message||"unknown");}
    authBusy=false;render();break;}
   case"signout":await sb.auth.signOut();user=null;authToken=null;S.cards=[];
+   S.settings={...DEF_SET};pending={};acct=null;cacheOwner="";
    localStorage.removeItem(CACHE);render();break;
   case"pull":await pullAll();await loadAccount();render();toast("Refreshed");break;
   case"loadacct":await loadAccount();render();break;
@@ -2406,6 +2431,7 @@ async function checkSession(){
  user=data&&data.session?data.session.user:null;
  if(user){
   authToken=data.session.access_token;
+  claimCache();
   render();
   try{await pullAll();}catch(_){}
   loadAccount().then(render);
