@@ -398,7 +398,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="63";
+const VERSION="64";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -1829,7 +1829,9 @@ function evidencePanel(c){
    return `<div class="ev-crack">Raw copies trade at ${money(raw)}, so the grade is worth about ${money(slab-raw)}.</div>`;})()}
   ${c.srcUrl&&c.pricePath==="direct"?`<a class="ev-src" href="${esc(c.srcUrl)}" target="_blank" rel="noopener">see the page this came from</a>`:""}
   ${c.pricePath?`<div class="ev-path ${c.pricePath==="direct"?"free":""}">${
-   c.pricePath==="direct"?"read straight from the guide — free"
+   c.pricePath==="direct"?(c.srcUrl&&/tcgdex/.test(String(c.srcUrl))
+     ?"read from TCGplayer via TCGdex — free"
+     :"read straight from the guide — free")
    :c.pricePath==="direct+model"?"guide page plus a model lookup"
    :"model lookup with web search"}${
    c.directWhy?` · free lookup missed: ${esc(c.directWhy)}`:""}</div>`:""}
