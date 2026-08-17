@@ -231,6 +231,20 @@ textarea.fld-i{resize:vertical}
 .ev-b{width:52px;flex-shrink:0;color:var(--mute)}
 .ev-d{width:76px;flex-shrink:0;color:var(--mute)}
 .ev-s{color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dgroup{border:1px solid var(--rule);border-radius:2px;padding:12px;margin:12px 0;background:var(--label)}
+.dhd{font-size:13px;font-weight:500;margin-bottom:9px}
+.dnum{font-family:var(--mono);font-size:11px;color:var(--mute)}
+.dcards{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+.dcard{display:flex;gap:8px;background:var(--paper);border-radius:2px;padding:7px;min-width:190px}
+.dimg{width:40px;height:56px;object-fit:cover;border-radius:2px;flex-shrink:0;background:#DDE1E7}
+.dimg.ph{background:repeating-linear-gradient(135deg,#EDEFF2,#EDEFF2 5px,#E3E6EB 5px,#E3E6EB 10px)}
+.dmeta{min-width:0;font-size:11px;line-height:1.45}
+.dsku{font-family:var(--mono);font-size:11px;font-weight:600}
+.dqty{color:var(--red)}
+.dset{color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px}
+.dval{font-family:var(--mono);font-size:10.5px;color:var(--mute)}
+.dcert{font-family:var(--mono);font-size:9.5px;color:var(--gold)}
+.dacts{display:flex;flex-direction:column;gap:6px;margin-top:11px}
 .confbox{background:#fff;border:1px solid var(--red);border-left:4px solid var(--red);
  padding:13px;margin-top:10px;font-size:13px;line-height:1.5;border-radius:2px}
 .confrow{display:flex;gap:8px;margin-top:11px}
@@ -399,7 +413,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="67";
+const VERSION="69";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -433,7 +447,7 @@ function setTrait(c,t,on){
  if(on)list.push(t);
  c.traits=list.join(",");
 }
-const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90,nickname:"",avatar:"",gradeWith:"PSA",goats:"Michael Jordan, Kobe Bryant, LeBron James, Stephen Curry, Magic Johnson, Larry Bird, Kareem Abdul-Jabbar, Wilt Chamberlain, Shaquille O'Neal, Tim Duncan, Victor Wembanyama, Shohei Ohtani, Babe Ruth, Mickey Mantle, Willie Mays, Hank Aaron, Ken Griffey Jr, Mike Trout, Tom Brady, Jerry Rice, Joe Montana, Peyton Manning, Patrick Mahomes, Pele, Diego Maradona, Lionel Messi, Cristiano Ronaldo, Kylian Mbappe, Wayne Gretzky, Mario Lemieux, Connor McDavid, Muhammad Ali, Mike Tyson, Jon Jones, Roger Federer, Serena Williams, Rafael Nadal, Novak Djokovic, Tiger Woods, Jack Nicklaus, Lewis Hamilton, Ayrton Senna, Michael Schumacher, Caitlin Clark, A'ja Wilson, Diana Taurasi",usage:null};
+const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90,nickname:"",avatar:"",gradeWith:"PSA",dupOk:"",goats:"Michael Jordan, Kobe Bryant, LeBron James, Stephen Curry, Magic Johnson, Larry Bird, Kareem Abdul-Jabbar, Wilt Chamberlain, Shaquille O'Neal, Tim Duncan, Victor Wembanyama, Shohei Ohtani, Babe Ruth, Mickey Mantle, Willie Mays, Hank Aaron, Ken Griffey Jr, Mike Trout, Tom Brady, Jerry Rice, Joe Montana, Peyton Manning, Patrick Mahomes, Pele, Diego Maradona, Lionel Messi, Cristiano Ronaldo, Kylian Mbappe, Wayne Gretzky, Mario Lemieux, Connor McDavid, Muhammad Ali, Mike Tyson, Jon Jones, Roger Federer, Serena Williams, Rafael Nadal, Novak Djokovic, Tiger Woods, Jack Nicklaus, Lewis Hamilton, Ayrton Senna, Michael Schumacher, Caitlin Clark, A'ja Wilson, Diana Taurasi",usage:null};
 const CONF={low:{p10:.08,p9:.32},med:{p10:.22,p9:.45},high:{p10:.42,p9:.42}};
 /* Where a submission actually lands, by how the card looks. Real grading
    outcomes spread across 7 through 10 — treating everything below 9 as
@@ -479,7 +493,7 @@ const SEED=[
 
 /* ============ state ============ */
 let S={cards:[],settings:{...DEF_SET}};
-let tab="scan", editing=null, confirmDel=false;
+let tab="scan", editing=null, confirmDel=false, dupReview=false;
 let queue=[], scanning=false, storeInfo=null;
 let F={q:"",cats:[],flags:[],traits:[],minVal:0,sort:"newest",limit:50,open:""};
 let photoCache={}, picTarget=null, deferredPrompt=null;
@@ -705,13 +719,23 @@ function dupKey(c){
  return [c.year,c.set,c.subject,c.num,c.variant,c.graded?c.grader+c.grade:"raw"]
   .map(x=>String(x||"").trim().toLowerCase()).join("|");
 }
+function dupOkList(){
+ // keys contain pipes, so this is stored as JSON rather than a delimited string
+ try{const v=JSON.parse(S.settings.dupOk||"[]");return Array.isArray(v)?v:[];}
+ catch(_){return [];}
+}
 function findDupes(){
  const groups={};
+ const ok=dupOkList();
  S.cards.forEach(c=>{
+  if(c.status==="sold")return;
   if(!c.subject&&!c.set)return;
   const k=dupKey(c);(groups[k]=groups[k]||[]).push(c);
  });
- return Object.values(groups).filter(g=>g.length>1);
+ // groups you have already told me are separate cards stay out of the way
+ return Object.entries(groups)
+  .filter(([k,g])=>g.length>1&&ok.indexOf(k)===-1)
+  .map(([k,g])=>({key:k,cards:g}));
 }
 function score(c){
  // prefer the record that actually has data on it
@@ -1215,6 +1239,7 @@ function render(){
  </footer>`;})();
  if(tab==="collection")h+=`<button class="fab" data-act="new" aria-label="Add a card">+</button>`;
  if(editing)h+=viewSheet();
+ if(dupReview)h+=viewDupes();
  document.getElementById("app").innerHTML=h;
  positionTabs();
  if(editing)hydratePhotos();
@@ -1667,8 +1692,8 @@ function viewSetup(){
  const tidyBits=[
   unsaved?`<p class="note">${unsaved} items are on this device but not in the database.</p>
    <button class="btn wide" data-act="retry">Retry saving ${unsaved}</button>`:"",
-  dupes?`<p class="note">${dupes} item${dupes===1?"":"s"} appear more than once.</p>
-   <button class="btn ghost wide" data-act="dedupe">Merge ${dupes} duplicate${dupes===1?"":"s"}</button>`:"",
+  dupes?`<p class="note">${dupes} group${dupes===1?"":"s"} look duplicated. Nothing is merged until you say so — you can combine them into one record with the right quantity, or mark them as different cards.</p>
+   <button class="btn ghost wide" data-act="dedupe">Review ${dupes} group${dupes===1?"":"s"}</button>`:"",
   skuDupes?`<p class="note">${skuDupes} share a SKU with another item.</p>
    <button class="btn ghost wide" data-act="fixsku">Renumber ${skuDupes}</button>`:"",
   flags?`<p class="note">${flags} carry a review flag from an older build.</p>
@@ -1704,6 +1729,49 @@ function viewSetup(){
   ${sec("Diagnostics","",diag)}
   ${sec("Account","",account)}
  </div>`;
+}
+
+function viewDupes(){
+ const groups=findDupes();
+ if(!groups.length){
+  return`<div class="sheet-wrap"><div class="sheet"><div class="sheet-hd">
+   <button class="x" data-act="dupclose">Close</button><span class="sheet-t">Duplicates</span>
+   <span class="x"></span></div><div class="sheet-body">
+   <p class="note">Nothing looks duplicated any more.</p></div></div></div>`;
+ }
+ const row=c=>{
+  const f=photoURL(c,"F");
+  return`<div class="dcard">
+   ${f?`<img class="dimg" src="${esc(f)}" alt="" loading="lazy" onerror="this.remove()">`:`<div class="dimg ph"></div>`}
+   <div class="dmeta">
+    <div class="dsku">${esc(c.sku||"")}${n(c.qty)>1?` <span class="dqty">×${esc(c.qty)}</span>`:""}</div>
+    <div class="dset">${esc(c.set||"no set recorded")}</div>
+    <div class="dval">${n(c.vRaw)?money(c.vRaw):"no price"}${c.graded?` · ${esc(c.grader)} ${esc(c.grade)}`:" · raw"}</div>
+    ${c.cert?`<div class="dcert">cert ${esc(c.cert)}</div>`:""}
+   </div></div>`;
+ };
+ let h=`<div class="sheet-wrap"><div class="sheet"><div class="sheet-hd">
+  <button class="x" data-act="dupclose">Close</button>
+  <span class="sheet-t">${groups.length} to check</span><span class="x"></span></div>
+  <div class="sheet-body">
+  <p class="note">These look like the same item. If you really own more than one, combine them into a single record with the right quantity. If they are different cards, tell me and I will stop asking.</p>`;
+ groups.forEach(g=>{
+  const total=g.cards.reduce((a,c)=>a+(n(c.qty)||1),0);
+  const certs=g.cards.map(c=>String(c.cert||"").replace(/\D/g,"")).filter(Boolean);
+  const certClash=new Set(certs).size>1;
+  h+=`<div class="dgroup">
+   <div class="dhd">${esc([g.cards[0].year,g.cards[0].subject].filter(Boolean).join(" "))}
+    ${g.cards[0].num?`<span class="dnum">#${esc(g.cards[0].num)}</span>`:""}</div>
+   <div class="dcards">${g.cards.map(row).join("")}</div>
+   ${certClash?`<div class="warn">These carry different cert numbers, so they are different physical slabs. Combining them would be wrong — use "different cards".</div>`:""}
+   <div class="dacts">
+    <button class="btn" data-act="dupmerge" data-key="${esc(g.key)}" data-mode="combine">Same card — combine, quantity ${total}</button>
+    <button class="btn ghost" data-act="dupmerge" data-key="${esc(g.key)}" data-mode="one">Duplicate entry — keep one</button>
+    <button class="btn ghost" data-act="dupkeep" data-key="${esc(g.key)}">Different cards — stop asking</button>
+   </div></div>`;
+ });
+ h+=`</div></div></div>`;
+ return h;
 }
 
 function viewSheet(){
@@ -1959,7 +2027,7 @@ document.addEventListener("click",async e=>{
  // a tap on the dim area outside the sheet closes it
  if(editing&&e.target&&e.target.classList&&e.target.classList.contains("sheet-wrap")){
   editing=null;render();return;}
- const t=e.target.closest("[data-tab],[data-act],[data-open],[data-panel],[data-pick],[data-graded],[data-pic],[data-clear],[data-toggletrait],[data-verif]");
+ const t=e.target.closest("[data-tab],[data-act],[data-open],[data-panel],[data-pick],[data-graded],[data-pic],[data-clear],[data-toggletrait],[data-verif],[data-key]");
  if(!t)return;
  const d=t.dataset;
  if(d.clear!==undefined&&d.clear){e.stopPropagation();
@@ -2067,10 +2135,37 @@ document.addEventListener("click",async e=>{
    const fixed=await fixSkuDupes();render();
    toast("Renumbered "+fixed+" card"+(fixed===1?"":"s"));break;}
   case"dedupe":{
-   const n0=findDupes().length;
-   if(!n0){toast("No duplicates found");break;}
-   const removed=await mergeDupes();render();
-   toast("Merged "+n0+" group"+(n0===1?"":"s")+", removed "+removed);break;}
+   if(!findDupes().length){toast("Nothing looks duplicated");break;}
+   dupReview=true;render();break;}
+  case"dupclose":dupReview=false;render();break;
+  case"dupkeep":{
+   // these are genuinely separate cards — stop asking
+   const list=dupOkList();
+   if(list.indexOf(d.key)===-1)list.push(d.key);
+   S.settings.dupOk=JSON.stringify(list);
+   pushSettings();render();break;}
+  case"dupmerge":{
+   const grp=findDupes().find(g=>g.key===d.key);
+   if(!grp){render();break;}
+   const combine=d.mode==="combine";
+   const sorted=grp.cards.slice().sort((a,b)=>richness(b)-richness(a));
+   const keep=sorted[0], drop=sorted.slice(1);
+   if(combine){
+    keep.qty=grp.cards.reduce((a,c)=>a+(n(c.qty)||1),0);
+   }
+   // carry over anything the keeper is missing
+   drop.forEach(x=>{
+    ["cost","acqDate","source","loc","notes","photoF","photoB","cert","serial"].forEach(f=>{
+     if(!keep[f]&&x[f])keep[f]=x[f];
+    });
+   });
+   S.cards=S.cards.filter(c=>drop.indexOf(c)===-1);
+   save();
+   await pushCard(keep);
+   for(const x of drop){try{await deleteCard(x.id);}catch(_){}}
+   render();
+   toast(combine?("Combined into one, quantity "+keep.qty):("Kept "+keep.sku+", removed "+drop.length));
+   break;}
   case"clearflags":{
    const hit=S.cards.filter(c=>c.review&&c.evidence&&c.evidence.current&&
     ["sales","guide"].indexOf(c.evidence.current.method)>-1);
