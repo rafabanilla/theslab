@@ -414,7 +414,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="71";
+const VERSION="72";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -1195,18 +1195,23 @@ function viewConfig(){
 
 function viewSignIn(){
  const mk=window._mode==="new";
+ // The database button is only reachable with ?setup=1 in the address bar.
+ // Nobody using the app needs it, and tapping it by accident breaks their app.
+ const showCfg=/[?&]setup=1/.test(location.search);
  return `<div class="gate"><div class="gwrap">
   <div class="wm" style="color:var(--ink);margin-bottom:6px"><span class="wm1">THE</span><span class="wm2">SLAB</span></div>
   <h1 class="gt">${mk?"Create your account":"Sign in"}</h1>
-  <p class="gp">${mk?"One account, used on every device you catalogue from.":"Same account on your phone and your laptop means the same collection."}</p>
+  <p class="gp">${mk
+   ?"Accounts are usually set up for you. If you were not given one, ask Raf."
+   :"Same account on your phone and your laptop means the same collection."}</p>
   ${fld("Email","authEmail",window._email||"","you@example.com","g","email")}
   ${fld("Password","authPass","",mk?"at least 8 characters":"","g","password")}
   <button class="btn wide" data-act="${mk?"signup":"signin"}" ${authBusy?"disabled":""}>
    ${authBusy?"Working…":(mk?"Create account":"Sign in")}</button>
   ${authMsg?`<div class="gmsg">${esc(authMsg)}</div>`:""}
-  <button class="btn ghost wide" data-act="togglemode">${mk?"I already have an account":"Create an account instead"}</button>
-  <p class="gp small">Trouble signing in? <a href="#" data-act="magic">Email me a link instead</a> — note that Supabase's built-in mailer only sends two messages an hour.</p>
-  <button class="btn ghost wide" data-act="editcfg">Change database settings</button>
+  <button class="btn ghost wide" data-act="togglemode">${mk?"I already have an account":"I need an account"}</button>
+  <p class="gp small">Forgotten your password? <a href="#" data-act="magic">Email me a sign-in link</a>.</p>
+  ${showCfg?`<button class="btn ghost wide" data-act="editcfg">Change database settings</button>`:""}
  </div></div>`;
 }
 
@@ -2123,7 +2128,9 @@ document.addEventListener("click",async e=>{
     const fn=d.act==="signup"?"signUp":"signInWithPassword";
     const {data,error}=await sb.auth[fn]({email:em,password:pw});
     if(error){
-     authMsg=/invalid login/i.test(error.message)?"Email or password not recognised. If this is your first time, tap Create an account."
+     authMsg=/signups? not allowed|signup is disabled/i.test(error.message)
+      ?"New accounts are made by hand. Ask Raf to set one up for you, then sign in here."
+      :/invalid login/i.test(error.message)?"Email or password not recognised. If you were given an account, check the address and try again."
       :/already registered|already exists/i.test(error.message)?"That email already has an account — sign in instead."
       :/confirm/i.test(error.message)?"Supabase wants to confirm this email. Turn off Authentication → Sign In / Providers → Email → Confirm email, then try again."
       :error.message;
