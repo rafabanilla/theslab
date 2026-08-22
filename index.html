@@ -414,7 +414,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="72";
+const VERSION="74";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -1390,7 +1390,7 @@ function viewCollection(){
  if(!list.length)h+=`<div class="empty">
   <p>${S.cards.length?"Nothing matches those filters.":"Nothing here yet. Scan something, or add it by hand."}</p>
   ${S.cards.length&&(F.cats.length||F.traits.length||F.flags.length)?`<button class="btn ghost" data-act="clearfilters">Clear filters</button>`:""}
-  <button class="btn" data-act="new">Add a card by hand</button></div>`;
+  <button class="btn" data-act="new">Add one by hand</button></div>`;
  else{h+=list.slice(0,F.limit).map(slabRow).join("");
   if(list.length>F.limit)h+=`<button class="btn ghost wide" data-act="more">Show 50 more (${list.length-F.limit} left)</button>`;}
  return h+"</div>";
@@ -1403,7 +1403,7 @@ function slabRow(c){
   <div class="${cls}">${c.graded?`<span class="cg-co">${esc(c.grader)}</span><span class="cg-n">${esc(c.grade)}</span>`:`<span class="cg-raw">RAW</span>`}</div>
   <div class="sb">
    <div class="sl"><span class="sl-yr">${esc(c.year||"—")}</span><span class="sl-set">${esc(c.set||"Unset")}</span></div>
-   <h3 class="sn">${esc(c.subject||"Untitled card")}</h3>
+   <h3 class="sn">${esc(c.subject||"Untitled")}</h3>
    <div class="sm">${c.num?`<span>#${esc(c.num)}</span>`:""}${c.variant?`<span>${esc(c.variant)}</span>`:""}${c.serial?`<span>/${esc(c.serial)}</span>`:""}${n(c.qty)>1?`<span>×${esc(c.qty)}</span>`:""}</div>
    ${traitList(c).length?`<div class="trs">${traitList(c).slice(0,4).map(t=>
      `<span class="tr${t==="auto"||t==="relic"||t==="numbered"?" hot":""}">${esc(TRAIT_LABEL[t]||t)}</span>`).join("")}</div>`:""}
@@ -1802,7 +1802,7 @@ function viewSheet(){
  const c=editing, g=gradeCall(c);
  let h=`<div class="sheet-wrap"><div class="sheet" data-sheet="1">
   <div class="sheet-hd"><button class="x" data-act="cancel">Cancel</button>
-  <span class="sheet-t">${esc(c.sku||"New card")}</span>
+  <span class="sheet-t">${esc(c.sku||"New item")}</span>
   <button class="x go" data-act="save">Save</button></div><div class="sheet-body">
   <div class="shots">
    <div class="shot" data-pic="F"><span class="shot-l">Front</span><img id="imgF" style="display:none"><span class="shot-x" data-clear="F" style="display:none">clear</span></div>
@@ -1812,9 +1812,9 @@ function viewSheet(){
   <div class="row2">${sel("Category","cat",c.cat,CATS)}${fld("Year","year",c.year,"1996")}</div>
   ${fld("Set","set",c.set,"Topps Chrome")}
   ${fld("Player or character","subject",c.subject,"Michael Jordan")}
-  <div class="row2">${fld("Card no.","num",c.num,"23")}${fld("Serial /","serial",c.serial,"99")}</div>
+  <div class="row2">${fld("Number","num",c.num,"23")}${fld("Serial /","serial",c.serial,"99")}</div>
   ${fld("Parallel or insert","variant",c.variant,"Refractor, Holo, 1st Edition")}
- <label class="fld"><span class="fld-l">What kind of card is it</span>
+ <label class="fld"><span class="fld-l">What kind of item is it</span>
   <div class="trpick">${(isTCG(c)?TRAITS_ANY.concat(TRAITS_TCG):TRAITS_ANY).map(t=>{
    const on=traitList(c).indexOf(t)>-1;
    return `<button class="trbtn${on?" on":""}" data-toggletrait="${t}">${esc(TRAIT_LABEL[t]||t)}</button>`;
@@ -1866,11 +1866,11 @@ function viewSheet(){
   <div class="lt"><span>Listing title</span><code>${esc(title(c))}</code></div>
   <button class="btn wide" data-act="save-next">Save and add another</button>`;
  h+=confirmDel?`<div class="confbox" id="confbox">
-   Delete ${esc(c.sku||"this card")} for good? This cannot be undone.
+   Delete ${esc(c.sku||"this item")} for good? This cannot be undone.
    <div class="confrow">
     <button class="btn ghost" data-act="nodel">Keep</button>
     <button class="btn danger" data-act="del">Delete</button></div></div>`
-  :`<button class="btn danger wide" data-act="askdel">Delete this card</button>`;
+  :`<button class="btn danger wide" data-act="askdel">Delete this item</button>`;
  return h+`</div></div></div>`;
 }
 
@@ -1962,7 +1962,7 @@ function evidencePanel(c){
       ev.current.low!==ev.current.high?` Likely range ${money(ev.current.low)}–${money(ev.current.high)}.`:""}</div>`
    :(ev.current&&ev.current.method==="guide")
     ?`<div class="ev-note">No individual sales were visible, so these come from a market guide that aggregates eBay sales. Reasonable for sorting, worth verifying before you list anything above $100.</div>`
-    :`<div class="ev-warn">Nothing found for this card. Any figure above is a placeholder, not a valuation — search it yourself before pricing.</div>`}
+    :`<div class="ev-warn">Nothing found for this one. Any figure above is a placeholder, not a valuation — search it yourself before pricing.</div>`}
  </div>`;
 }
 function fld(label,k,v,ph,kind,type){
@@ -2092,7 +2092,8 @@ document.addEventListener("click",async e=>{
   case"clearfilters":F.cats=[];F.traits=[];F.flags=[];F.minVal=0;F.open="";F.limit=50;render();break;
   case"more":F.limit+=50;render();break;
   case"cancel":editing=null;render();break;
-  case"save":commit();editing=null;render();toast("Saved");break;
+  case"save":{const s=editing&&editing.sku;commit();editing=null;render();
+   toast(s?("Saved "+s):"Saved");break;}
   case"save-next":{const prev=commit();
    editing={...blank(bumpSku(prev.sku)||nextSku()),cat:prev.cat,year:prev.year,set:prev.set,
     source:prev.source,loc:prev.loc,acqDate:prev.acqDate};confirmDel=false;render();toast("Saved");break;}
@@ -2101,10 +2102,10 @@ document.addEventListener("click",async e=>{
     if(b&&b.scrollIntoView)b.scrollIntoView({block:"center",behavior:"smooth"});},60);
    break;
   case"nodel":confirmDel=false;render();break;
-  case"del":{const gone=editing.id;
+  case"del":{const gone=editing.id, label=editing.sku||"";
    await removePhoto(gone,"F");await removePhoto(gone,"B");
    S.cards=S.cards.filter(c=>c.id!==gone);await dropCard(gone);
-   editing=null;render();toast("Deleted");break;}
+   editing=null;render();toast(label?("Deleted "+label):"Deleted");break;}
   case"savecfg":{
    const u=(document.querySelector('[data-g="cfgUrl"]')||{}).value||"";
    const k=(document.querySelector('[data-g="cfgKey"]')||{}).value||"";
