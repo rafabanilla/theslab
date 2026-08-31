@@ -326,31 +326,31 @@ textarea.fld-i{resize:vertical}
 .dnd-sec h2{font-family:var(--disp);font-size:14px;letter-spacing:.14em;text-transform:uppercase;
  margin:0 0 10px;color:#183021}
 
-/* hero card */
-.hero{display:flex;gap:14px;background:linear-gradient(180deg,#FFFDF8,#F7F1E4);
+/* dh card */
+.dh{display:flex;gap:14px;background:linear-gradient(180deg,#FFFDF8,#F7F1E4);
  border:1px solid #CDBF9F;border-radius:5px;padding:14px;margin:14px 0;
  box-shadow:0 2px 0 rgba(120,100,60,.10)}
-.hero.me{border-color:var(--brass);box-shadow:0 0 0 1px rgba(168,124,26,.28),0 3px 10px rgba(90,70,30,.10)}
-.hero-art{position:relative;width:96px;height:132px;flex-shrink:0;border-radius:4px;overflow:hidden;
+.dh.me{border-color:var(--brass);box-shadow:0 0 0 1px rgba(168,124,26,.28),0 3px 10px rgba(90,70,30,.10)}
+.dh-art{position:relative;width:96px;height:132px;flex-shrink:0;border-radius:4px;overflow:hidden;
  background:#E7DFCB;border:1px solid #CDBF9F}
-.hero-art img{width:100%;height:100%;object-fit:cover;display:block}
-.hero-noart{width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+.dh-art img{width:100%;height:100%;object-fit:cover;display:block}
+.dh-noart{width:100%;height:100%;display:flex;align-items:center;justify-content:center;
  font-family:var(--disp);font-size:38px;color:#B6A785}
-.hero-more{position:absolute;right:4px;bottom:4px;background:rgba(0,0,0,.6);color:#fff;
+.dh-more{position:absolute;right:4px;bottom:4px;background:rgba(0,0,0,.6);color:#fff;
  font-family:var(--mono);font-size:10px;padding:1px 5px;border-radius:2px}
-.hero-body{flex:1;min-width:0}
-.hero-name{font-family:var(--disp);font-size:22px;line-height:1.1;color:#17150F}
-.hero-sub{font-size:12.5px;color:#4E4838;margin-top:2px}
-.hero-lvl{font-family:var(--mono);font-size:10.5px;color:#6E664F;margin-top:3px}
-.hero-stats{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;margin:10px 0 8px}
+.dh-body{flex:1;min-width:0}
+.dh-name{font-family:var(--disp);font-size:22px;line-height:1.1;color:#17150F}
+.dh-sub{font-size:12.5px;color:#4E4838;margin-top:2px}
+.dh-lvl{font-family:var(--mono);font-size:10.5px;color:#6E664F;margin-top:3px}
+.dh-stats{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;margin:10px 0 8px}
 .hs{background:#F3ECDA;border:1px solid #D2C6A6;border-radius:3px;padding:6px 2px;text-align:center}
 .hs-l{font-family:var(--mono);font-size:8.5px;letter-spacing:.05em;color:#6E664F}
 .hs-v{font-family:var(--disp);font-size:17px;line-height:1.1;color:#17150F}
 .hs-m{font-family:var(--mono);font-size:10px;color:var(--wine);font-weight:600}
-.hero-line{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:#3D3829}
-.hero-line b{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:#6E664F;
+.dh-line{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:#3D3829}
+.dh-line b{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:#6E664F;
  text-transform:uppercase;margin-right:3px}
-.hero-acts{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.dh-acts{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
 .btn.sm{padding:6px 10px;font-size:11px;width:auto}
 .dnd-hero-empty{text-align:center;padding:34px 20px;background:#FFFDF7;color:#221F18;
  border:1px dashed #C9BB9B;border-radius:5px;margin:14px 0}
@@ -404,9 +404,10 @@ textarea.fld-i{resize:vertical}
 @media (prefers-reduced-motion:reduce){
  .pcard-in,.pcard:nth-child(even) .pcard-in{transform:none}
  .pcard:active .pcard-in{transform:translateY(-2px)}}
-.tog{display:flex;gap:0;border:1px solid #D2C6A6;border-radius:3px;overflow:hidden}
-.tg{flex:1;padding:10px 8px;font-size:12px;background:#FFFEFA;color:#4E4838}
-.tg.on{background:var(--forest);color:#F5EFE2}
+/* scoped, so the app's own Raw/Graded switch keeps its normal look */
+.dnd .tog{display:flex;gap:0;border:1px solid #D2C6A6;border-radius:3px;overflow:hidden}
+.dnd .tg{flex:1;padding:10px 8px;font-size:12px;background:#FFFEFA;color:#4E4838}
+.dnd .tg.on{background:var(--forest);color:#F5EFE2}
 
 /* dice */
 .dice-face{background:var(--forest);color:#F5EFE2;border-radius:5px;padding:20px 14px;
@@ -661,7 +662,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="79";
+const VERSION="80";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -1815,21 +1816,21 @@ function partyCard(c){
 function heroCard(c,mine){
  const art=heroArt(c);
  const pb=profBonus(c.level);
- return `<div class="hero${mine?" me":""}" data-hero="${esc(c.id)}">
-  <div class="hero-art">
+ return `<div class="dh${mine?" me":""}" data-hero="${esc(c.id)}">
+  <div class="dh-art">
    ${art.length?`<img src="${esc(art[0])}" alt="" onerror="this.remove()">`
-     :`<div class="hero-noart">${esc((c.name||"?").charAt(0).toUpperCase())}</div>`}
-   ${art.length>1?`<span class="hero-more">+${art.length-1}</span>`:""}
+     :`<div class="dh-noart">${esc((c.name||"?").charAt(0).toUpperCase())}</div>`}
+   ${art.length>1?`<span class="dh-more">+${art.length-1}</span>`:""}
   </div>
-  <div class="hero-body">
-   <div class="hero-name">${esc(c.name||"Unnamed")}</div>
-   <div class="hero-sub">${esc([c.race,c.klass&&(c.klass+(c.subclass?" ("+c.subclass+")":"")) ].filter(Boolean).join(" · "))}</div>
-   <div class="hero-lvl">Level ${n(c.level)||1}${c.background?" · "+esc(c.background):""}${c.alignment?" · "+esc(c.alignment):""}</div>
-   <div class="hero-stats">
+  <div class="dh-body">
+   <div class="dh-name">${esc(c.name||"Unnamed")}</div>
+   <div class="dh-sub">${esc([c.race,c.klass&&(c.klass+(c.subclass?" ("+c.subclass+")":"")) ].filter(Boolean).join(" · "))}</div>
+   <div class="dh-lvl">Level ${n(c.level)||1}${c.background?" · "+esc(c.background):""}${c.alignment?" · "+esc(c.alignment):""}</div>
+   <div class="dh-stats">
     ${ABIL.map(([k,label])=>`<div class="hs"><div class="hs-l">${label.slice(0,3).toUpperCase()}</div>
       <div class="hs-v">${n(c[k])}</div><div class="hs-m">${sgn(mod(c[k]))}</div></div>`).join("")}
    </div>
-   <div class="hero-line">
+   <div class="dh-line">
     <span><b>AC</b> ${n(c.ac)||"—"}</span>
     <span><b>HP</b> ${n(c.hp_now)||0}/${n(c.hp_max)||0}${n(c.hp_temp)?" +"+n(c.hp_temp):""}</span>
     <span><b>Speed</b> ${n(c.speed)||30}ft</span>
@@ -1837,7 +1838,7 @@ function heroCard(c,mine){
     <span><b>Prof</b> ${sgn(pb)}</span>
     <span><b>Passive</b> ${passivePerception(c)}</span>
    </div>
-   ${mine?`<div class="hero-acts">
+   ${mine?`<div class="dh-acts">
      <button class="btn ghost sm" data-act="hero-hp" data-d="-1">−1 HP</button>
      <button class="btn ghost sm" data-act="hero-hp" data-d="1">+1 HP</button>
      <button class="btn ghost sm" data-act="hero-insp">${c.inspiration?"★ Inspired":"☆ Inspiration"}</button>
