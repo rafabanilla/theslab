@@ -331,9 +331,10 @@ textarea.fld-i{resize:vertical}
  border:1px solid #CDBF9F;border-radius:5px;padding:14px;margin:14px 0;
  box-shadow:0 2px 0 rgba(120,100,60,.10)}
 .dh.me{border-color:var(--brass);box-shadow:0 0 0 1px rgba(168,124,26,.28),0 3px 10px rgba(90,70,30,.10)}
-.dh-art{position:relative;width:96px;height:132px;flex-shrink:0;border-radius:4px;overflow:hidden;
+.dh-art{position:relative;width:104px;height:142px;flex-shrink:0;border-radius:4px;overflow:hidden;
  background:#E7DFCB;border:1px solid #CDBF9F}
-.dh-art img{width:100%;height:100%;object-fit:cover;display:block}
+.dh-art img{width:100%;height:100%;object-fit:contain;display:block;
+ background:radial-gradient(120% 90% at 50% 25%,#F6EFDE,#E3D8BC)}
 .dh-noart{width:100%;height:100%;display:flex;align-items:center;justify-content:center;
  font-family:var(--disp);font-size:38px;color:#B6A785}
 .dh-more{position:absolute;right:4px;bottom:4px;background:rgba(0,0,0,.6);color:#fff;
@@ -412,6 +413,45 @@ textarea.fld-i{resize:vertical}
  .pcard-in,.pcard:nth-child(even) .pcard-in{transform:none}
  .pcard:active .pcard-in{transform:translateY(-2px)}}
 /* scoped, so the app's own Raw/Graded switch keeps its normal look */
+/* the character sheet that opens when you tap a card */
+.cs{background:linear-gradient(180deg,#FFFDF7,#F6EFDE);color:#221F18}
+.cs .sheet-hd{background:var(--forest);color:#F5EFE2}
+.cs .sheet-hd .x{color:#F5EFE2}
+.cs-arts{display:flex;gap:8px;overflow-x:auto;padding:14px 0 4px;scrollbar-width:none}
+.cs-arts::-webkit-scrollbar{display:none}
+.cs-arts img{height:210px;border-radius:6px;border:1px solid #CDBF9F;
+ background:radial-gradient(120% 90% at 50% 25%,#F6EFDE,#E3D8BC);object-fit:contain}
+.cs-name{font-family:var(--disp);font-size:26px;line-height:1.15;margin:14px 0 2px;color:#17150F}
+.cs-line{font-size:13.5px;color:#4E4838}
+.cs-meta{font-family:var(--mono);font-size:10.5px;color:#6E664F;margin-top:4px}
+.cs-abils{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin:16px 0}
+.cs-ab{background:#F3ECDA;border:1px solid #D2C6A6;border-radius:4px;padding:7px 2px;text-align:center}
+.cs-ab span{display:block;font-family:var(--mono);font-size:8.5px;color:#6E664F}
+.cs-ab b{display:block;font-family:var(--disp);font-size:18px;color:#17150F;line-height:1.1}
+.cs-ab i{display:block;font-family:var(--mono);font-size:10px;color:var(--wine);font-style:normal;font-weight:600}
+.cs-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}
+.cs-grid div{background:#FFFEFA;border:1px solid #E0D6C0;border-radius:3px;padding:8px 10px}
+.cs-grid span{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.05em;
+ text-transform:uppercase;color:#6E664F}
+.cs-grid b{font-family:var(--disp);font-size:16px;color:#17150F}
+.cs-h{font-family:var(--disp);font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+ color:#183021;margin:20px 0 8px;padding-bottom:5px;border-bottom:1px solid #DCCFAE}
+.cs-rows{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+.cs-row{display:flex;align-items:center;gap:7px;background:#FFFEFA;border:1px solid #E6DCC6;
+ border-radius:3px;padding:7px 8px;font-size:11.5px;color:#3D3829;min-width:0}
+.cs-row.on{background:#EDF2EA;border-color:#B9CDB4}
+.cs-row b{font-family:var(--mono);font-size:11.5px;min-width:24px;color:#17150F}
+.cs-row span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cs-row i{font-family:var(--mono);font-size:8px;font-style:normal;color:#7A9273}
+.cs-b{margin:10px 0}
+.cs-b h4{font-family:var(--mono);font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;
+ color:#6E664F;margin:0 0 3px}
+.cs-b p{margin:0;font-size:13px;line-height:1.6;color:#3D3829;white-space:pre-wrap}
+.cs-coins{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.cs-coins span{font-family:var(--mono);font-size:12px;background:#F3ECDA;border:1px solid #D2C6A6;
+ border-radius:3px;padding:5px 9px;color:#17150F}
+.cs-coins i{font-style:normal;font-size:9px;color:#6E664F}
+.pcard{cursor:pointer}
 .dnd .tog{display:flex;gap:0;border:1px solid #D2C6A6;border-radius:3px;overflow:hidden}
 .dnd .tg{flex:1;padding:10px 8px;font-size:12px;background:#FFFEFA;color:#4E4838}
 .dnd .tg.on{background:var(--forest);color:#F5EFE2}
@@ -669,7 +709,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="82";
+const VERSION="83";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -750,7 +790,7 @@ const SEED=[
 /* ============ state ============ */
 let S={cards:[],settings:{...DEF_SET}};
 let tab="scan", editing=null, confirmDel=false, dupReview=false;
-let heroes=[], sessions=[], heroEdit=null, sessEdit=null, dndLoaded=false;
+let heroes=[], sessions=[], heroEdit=null, sessEdit=null, dndLoaded=false, heroView=null;
 let secOpen={Collection:true};
 let queue=[], scanning=false, storeInfo=null;
 let F={q:"",cats:[],flags:[],traits:[],minVal:0,sort:"newest",limit:50,open:""};
@@ -1800,11 +1840,79 @@ function viewDnd(){
  return h;
 }
 
+function heroSheet(c){
+ if(!c)return "";
+ const art=heroArt(c);
+ const lvl=n(c.level)||1, pb=profBonus(lvl);
+ const line=[c.race,c.klass&&(c.klass+(c.subclass?" ("+c.subclass+")":""))].filter(Boolean).join(" ");
+ const block=(t,v)=>v?`<div class="cs-b"><h4>${t}</h4><p>${esc(v)}</p></div>`:"";
+ const dc=spellDC(c);
+ return `<div class="sheet-wrap dnd" data-close="1"><div class="sheet cs">
+  <div class="sheet-hd"><button class="x" data-act="hero-close">Close</button>
+   <span class="sheet-t">${c.is_dm?"Dungeon Master":"Character"}</span><span class="x"></span></div>
+  <div class="sheet-body">
+   ${art.length?`<div class="cs-arts">${art.map(u=>
+     `<img src="${esc(u)}" alt="" loading="lazy" onerror="this.remove()">`).join("")}</div>`:""}
+   <h2 class="cs-name">${esc(c.name||"Unnamed")}</h2>
+   <div class="cs-line">${esc(line||"—")}</div>
+   <div class="cs-meta">Level ${lvl}${c.background?" · "+esc(c.background):""}${
+     c.alignment?" · "+esc(c.alignment):""}${n(c.xp)?" · "+n(c.xp)+" XP":""}</div>
+
+   <div class="cs-abils">${ABIL.map(([k,label])=>`
+    <div class="cs-ab"><span>${label.slice(0,3).toUpperCase()}</span>
+     <b>${n(c[k])}</b><i>${sgn(mod(c[k]))}</i></div>`).join("")}</div>
+
+   <div class="cs-grid">
+    <div><span>Armour class</span><b>${n(c.ac)||"—"}</b></div>
+    <div><span>Hit points</span><b>${n(c.hp_now)||0} / ${n(c.hp_max)||0}${n(c.hp_temp)?" +"+n(c.hp_temp):""}</b></div>
+    <div><span>Speed</span><b>${n(c.speed)||30} ft</b></div>
+    <div><span>Initiative</span><b>${sgn(mod(c.dex))}</b></div>
+    <div><span>Proficiency</span><b>${sgn(pb)}</b></div>
+    <div><span>Passive perception</span><b>${passivePerception(c)}</b></div>
+    ${c.hit_die?`<div><span>Hit dice</span><b>${esc(c.hit_die)}</b></div>`:""}
+    ${c.inspiration?`<div><span>Inspiration</span><b>★ yes</b></div>`:""}
+   </div>
+
+   <h3 class="cs-h">Saving throws</h3>
+   <div class="cs-rows">${ABIL.map(([k,label])=>`
+    <div class="cs-row${hasIn(c.saves,k)?" on":""}"><b>${sgn(saveBonus(c,k))}</b>
+     <span>${label}</span>${hasIn(c.saves,k)?'<i>proficient</i>':""}</div>`).join("")}</div>
+
+   <h3 class="cs-h">Skills</h3>
+   <div class="cs-rows">${SKILLS.map(([s,a])=>`
+    <div class="cs-row${hasIn(c.skills,s)?" on":""}"><b>${sgn(skillBonus(c,s,a))}</b>
+     <span>${s}</span><i>${a==="intel"?"INT":a.toUpperCase()}</i></div>`).join("")}</div>
+
+   ${dc?`<h3 class="cs-h">Spellcasting</h3>
+    <div class="cs-grid"><div><span>Save DC</span><b>${dc}</b></div>
+     <div><span>Spell attack</span><b>${sgn(spellAtk(c))}</b></div></div>
+    ${block("Spells",c.spells)}${block("Slots",c.slots)}`:""}
+
+   ${(c.traits||c.ideals||c.bonds||c.flaws)?`<h3 class="cs-h">Who they are</h3>`:""}
+   ${block("Personality",c.traits)}${block("Ideals",c.ideals)}
+   ${block("Bonds",c.bonds)}${block("Flaws",c.flaws)}
+   ${block("Backstory",c.backstory)}
+
+   ${(c.features||c.equipment||c.proficiencies||c.languages)?`<h3 class="cs-h">Kit</h3>`:""}
+   ${block("Features and traits",c.features)}${block("Equipment",c.equipment)}
+   ${block("Proficiencies",c.proficiencies)}${block("Languages",c.languages)}
+   ${block("Treasure",c.treasure)}${block("Allies",c.allies)}
+   ${(n(c.pp)||n(c.gp)||n(c.ep)||n(c.sp)||n(c.cp))?`<div class="cs-coins">${
+     [["pp","PP"],["gp","GP"],["ep","EP"],["sp","SP"],["cp","CP"]].filter(([k])=>n(c[k]))
+     .map(([k,l])=>`<span>${n(c[k])} <i>${l}</i></span>`).join("")}</div>`:""}
+
+   ${(c.age||c.height||c.weight||c.eyes||c.skin||c.hair)?`<h3 class="cs-h">Appearance</h3>
+    <div class="cs-grid">${[["Age",c.age],["Height",c.height],["Weight",c.weight],
+      ["Eyes",c.eyes],["Skin",c.skin],["Hair",c.hair]].filter(([,v])=>v)
+      .map(([l,v])=>`<div><span>${l}</span><b>${esc(v)}</b></div>`).join("")}</div>`:""}
+  </div></div></div>`;
+}
+
 function partyCard(c){
  const art=heroArt(c);
  const me=c.owner===(user&&user.id);
  const line=[c.race,c.klass].filter(Boolean).join(" ");
- return `<div class="pcard${c.is_dm?" dm":""}${me?" me":""}">
+ return `<div class="pcard${c.is_dm?" dm":""}${me?" me":""}" data-heroview="${esc(c.id)}">
   <div class="pcard-in">
    <div class="pcard-art">
     ${art.length?`<img src="${esc(art[0])}" alt="" loading="lazy" onerror="this.remove()">`
@@ -1974,6 +2082,7 @@ function render(){
  if(tab==="collection")h+=`<button class="fab" data-act="new" aria-label="Add a card">+</button>`;
  if(editing)h+=viewSheet();
  if(dupReview)h+=viewDupes();
+ if(heroView)h+=heroSheet(heroes.find(x=>x.id===heroView));
  document.getElementById("app").innerHTML=h;
  positionTabs();
  if(editing)hydratePhotos();
@@ -2780,6 +2889,10 @@ document.addEventListener("click",async e=>{
  if(sm){const k=sm.getAttribute("data-sec");secOpen[k]=!secOpen[k];return;}
 
  // dice controls and the character toggles
+ const hv=e.target.closest&&e.target.closest("[data-heroview]");
+ if(hv){heroView=hv.getAttribute("data-heroview");render();window.scrollTo(0,0);return;}
+ if(heroView&&e.target&&e.target.classList&&e.target.classList.contains("sheet-wrap")){
+  heroView=null;render();return;}
  const dm=e.target.closest&&e.target.closest("[data-dm]");
  if(dm){heroEdit=heroEdit||Object.assign({},myHero()||blankHero());
   heroEdit.is_dm=dm.getAttribute("data-dm")==="1"; render(); return;}
@@ -2798,7 +2911,7 @@ document.addEventListener("click",async e=>{
  // a tap on the dim area outside the sheet closes it
  if(editing&&e.target&&e.target.classList&&e.target.classList.contains("sheet-wrap")){
   editing=null;render();return;}
- const t=e.target.closest("[data-tab],[data-act],[data-open],[data-panel],[data-pick],[data-graded],[data-pic],[data-clear],[data-toggletrait],[data-verif],[data-key],[data-die],[data-adv],[data-save],[data-skill],[data-d],[data-slot],[data-dm]");
+ const t=e.target.closest("[data-tab],[data-act],[data-open],[data-panel],[data-pick],[data-graded],[data-pic],[data-clear],[data-toggletrait],[data-verif],[data-key],[data-die],[data-adv],[data-save],[data-skill],[data-d],[data-slot],[data-dm],[data-heroview]");
  if(!t)return;
  const d=t.dataset;
  if(d.clear!==undefined&&d.clear){e.stopPropagation();
@@ -2833,6 +2946,7 @@ document.addEventListener("click",async e=>{
     const ok=await navigator.storage.persist();toast(ok?"Storage protected":"Browser declined — keep CSV backups");
     await measure();render();}break;
   case"new":editing=blank(nextSku());confirmDel=false;render();break;
+  case"hero-close":heroView=null;render();break;
   case"roll":doRoll();render();break;
   case"rollstats":{
    const sets=rollStats();
