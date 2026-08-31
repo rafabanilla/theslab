@@ -359,20 +359,20 @@ textarea.fld-i{resize:vertical}
 .dnd-hero-empty p{font-size:13px;color:#5A5340;max-width:34ch;margin:0 auto;line-height:1.55}
 /* The roster reads as a hand of cards: each one lifted off the parchment
    with a real edge, a warm underside and a sheen across the art. */
-.party{display:grid;grid-template-columns:repeat(2,1fr);gap:16px 14px;
- perspective:1100px;padding:6px 2px 10px}
+.party{display:grid;grid-template-columns:repeat(4,1fr);gap:12px 9px;
+ perspective:1000px;padding:6px 2px 10px}
 .pcard{transform-style:preserve-3d;transition:transform .28s cubic-bezier(.2,.7,.3,1)}
-.pcard-in{position:relative;border-radius:9px;overflow:hidden;
+.pcard-in{position:relative;border-radius:7px;overflow:hidden;
  background:linear-gradient(160deg,#FFFDF8 0%,#F3EBD9 60%,#E8DDC4 100%);
  border:1px solid #C6B893;
- transform:rotateX(7deg) rotateZ(-1deg);
+ transform:rotateX(5deg) rotateZ(-.8deg);
  box-shadow:
   0 1px 0 #FFFEFB inset,
   0 -2px 0 rgba(120,96,44,.18) inset,
   0 10px 18px -8px rgba(70,52,20,.45),
   0 22px 34px -18px rgba(70,52,20,.40);
  transition:transform .28s cubic-bezier(.2,.7,.3,1), box-shadow .28s}
-.pcard:nth-child(even) .pcard-in{transform:rotateX(7deg) rotateZ(1deg)}
+.pcard:nth-child(even) .pcard-in{transform:rotateX(5deg) rotateZ(.8deg)}
 .pcard:active .pcard-in{transform:rotateX(0deg) rotateZ(0deg) translateY(-3px);
  box-shadow:0 1px 0 #FFFEFB inset,0 16px 26px -10px rgba(70,52,20,.5)}
 .pcard.dm .pcard-in{border-color:var(--brass);
@@ -383,24 +383,28 @@ textarea.fld-i{resize:vertical}
   0 12px 20px -8px rgba(70,52,20,.48)}
 .pcard.me .pcard-in{border-color:#8FA98C}
 .pcard-art{position:relative;aspect-ratio:3/4;background:#E7DFCB;overflow:hidden}
-.pcard-art img{width:100%;height:100%;object-fit:cover;display:block}
+/* their drawings are all shapes; show the whole thing rather than cropping */
+.pcard-art img{width:100%;height:100%;object-fit:contain;display:block;
+ background:radial-gradient(120% 90% at 50% 25%,#F6EFDE,#E3D8BC)}
 .pcard-noart{width:100%;height:100%;display:flex;align-items:center;justify-content:center;
- font-family:var(--disp);font-size:46px;color:#B6A785;
+ font-family:var(--disp);font-size:30px;color:#B6A785;
  background:radial-gradient(120% 90% at 50% 20%,#F4EDDC,#DFD4B8)}
 .pcard-sheen{position:absolute;inset:0;pointer-events:none;
  background:linear-gradient(118deg,rgba(255,255,255,.42) 0%,rgba(255,255,255,0) 34%,
   rgba(255,255,255,0) 62%,rgba(255,255,255,.20) 84%,rgba(255,255,255,0) 100%)}
-.pcard-badge,.pcard-lvl{position:absolute;top:7px;right:7px;font-family:var(--mono);
- font-size:10px;letter-spacing:.08em;padding:3px 7px;border-radius:3px;
+.pcard-badge,.pcard-lvl{position:absolute;top:5px;right:5px;font-family:var(--mono);
+ font-size:8.5px;letter-spacing:.05em;padding:2px 5px;border-radius:2px;
  background:rgba(24,22,16,.72);color:#F5EFE2;backdrop-filter:blur(2px)}
 .pcard-badge{background:var(--brass);color:#241A05;font-weight:700}
-.pcard-foot{padding:9px 10px 11px;border-top:1px solid #DCCFAE;
+.pcard-foot{padding:6px 7px 8px;border-top:1px solid #DCCFAE;
  background:linear-gradient(180deg,#FFFDF8,#F6EFDE)}
-.pcard-name{font-family:var(--disp);font-size:15px;line-height:1.15;color:#17150F;
+.pcard-name{font-family:var(--disp);font-size:12.5px;line-height:1.15;color:#17150F;
  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pcard-line{font-family:var(--mono);font-size:9.5px;letter-spacing:.05em;color:#6E664F;
- margin-top:3px;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-@media (min-width:560px){.party{grid-template-columns:repeat(4,1fr)}}
+.pcard-line{font-family:var(--mono);font-size:8px;letter-spacing:.03em;color:#6E664F;
+ margin-top:2px;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (min-width:560px){.party{gap:16px 14px}
+ .pcard-name{font-size:15px}
+ .pcard-line{font-size:9.5px}}
 @media (prefers-reduced-motion:reduce){
  .pcard-in,.pcard:nth-child(even) .pcard-in{transform:none}
  .pcard:active .pcard-in{transform:translateY(-2px)}}
@@ -662,7 +666,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="80";
+const VERSION="81";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
