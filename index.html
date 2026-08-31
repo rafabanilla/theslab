@@ -357,8 +357,56 @@ textarea.fld-i{resize:vertical}
 .dnd-crest{font-size:34px;color:var(--brass)}
 .dnd-hero-empty h2{font-family:var(--disp);font-size:20px;margin:8px 0 4px}
 .dnd-hero-empty p{font-size:13px;color:#5A5340;max-width:34ch;margin:0 auto;line-height:1.55}
-.party{display:flex;flex-direction:column}
-.party .hero{margin:8px 0}
+/* The roster reads as a hand of cards: each one lifted off the parchment
+   with a real edge, a warm underside and a sheen across the art. */
+.party{display:grid;grid-template-columns:repeat(2,1fr);gap:16px 14px;
+ perspective:1100px;padding:6px 2px 10px}
+.pcard{transform-style:preserve-3d;transition:transform .28s cubic-bezier(.2,.7,.3,1)}
+.pcard-in{position:relative;border-radius:9px;overflow:hidden;
+ background:linear-gradient(160deg,#FFFDF8 0%,#F3EBD9 60%,#E8DDC4 100%);
+ border:1px solid #C6B893;
+ transform:rotateX(7deg) rotateZ(-1deg);
+ box-shadow:
+  0 1px 0 #FFFEFB inset,
+  0 -2px 0 rgba(120,96,44,.18) inset,
+  0 10px 18px -8px rgba(70,52,20,.45),
+  0 22px 34px -18px rgba(70,52,20,.40);
+ transition:transform .28s cubic-bezier(.2,.7,.3,1), box-shadow .28s}
+.pcard:nth-child(even) .pcard-in{transform:rotateX(7deg) rotateZ(1deg)}
+.pcard:active .pcard-in{transform:rotateX(0deg) rotateZ(0deg) translateY(-3px);
+ box-shadow:0 1px 0 #FFFEFB inset,0 16px 26px -10px rgba(70,52,20,.5)}
+.pcard.dm .pcard-in{border-color:var(--brass);
+ box-shadow:
+  0 1px 0 #FFFEFB inset,
+  0 -2px 0 rgba(120,96,44,.22) inset,
+  0 0 0 1px rgba(168,124,26,.35),
+  0 12px 20px -8px rgba(70,52,20,.48)}
+.pcard.me .pcard-in{border-color:#8FA98C}
+.pcard-art{position:relative;aspect-ratio:3/4;background:#E7DFCB;overflow:hidden}
+.pcard-art img{width:100%;height:100%;object-fit:cover;display:block}
+.pcard-noart{width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+ font-family:var(--disp);font-size:46px;color:#B6A785;
+ background:radial-gradient(120% 90% at 50% 20%,#F4EDDC,#DFD4B8)}
+.pcard-sheen{position:absolute;inset:0;pointer-events:none;
+ background:linear-gradient(118deg,rgba(255,255,255,.42) 0%,rgba(255,255,255,0) 34%,
+  rgba(255,255,255,0) 62%,rgba(255,255,255,.20) 84%,rgba(255,255,255,0) 100%)}
+.pcard-badge,.pcard-lvl{position:absolute;top:7px;right:7px;font-family:var(--mono);
+ font-size:10px;letter-spacing:.08em;padding:3px 7px;border-radius:3px;
+ background:rgba(24,22,16,.72);color:#F5EFE2;backdrop-filter:blur(2px)}
+.pcard-badge{background:var(--brass);color:#241A05;font-weight:700}
+.pcard-foot{padding:9px 10px 11px;border-top:1px solid #DCCFAE;
+ background:linear-gradient(180deg,#FFFDF8,#F6EFDE)}
+.pcard-name{font-family:var(--disp);font-size:15px;line-height:1.15;color:#17150F;
+ overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pcard-line{font-family:var(--mono);font-size:9.5px;letter-spacing:.05em;color:#6E664F;
+ margin-top:3px;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (min-width:560px){.party{grid-template-columns:repeat(4,1fr)}}
+@media (prefers-reduced-motion:reduce){
+ .pcard-in,.pcard:nth-child(even) .pcard-in{transform:none}
+ .pcard:active .pcard-in{transform:translateY(-2px)}}
+.tog{display:flex;gap:0;border:1px solid #D2C6A6;border-radius:3px;overflow:hidden}
+.tg{flex:1;padding:10px 8px;font-size:12px;background:#FFFEFA;color:#4E4838}
+.tg.on{background:var(--forest);color:#F5EFE2}
 
 /* dice */
 .dice-face{background:var(--forest);color:#F5EFE2;border-radius:5px;padding:20px 14px;
@@ -613,7 +661,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="78";
+const VERSION="79";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -1494,7 +1542,7 @@ const HERO_COLS=["id","owner","party","name","player","klass","subclass","level"
  "skills","languages","proficiencies","traits","ideals","bonds","flaws","features",
  "equipment","treasure","allies","cp","sp","ep","gp","pp","spell_ability","spells",
  "slots","age","height","weight","eyes","skin","hair","backstory",
- "art1","art2","art3","art4"];
+ "art1","art2","art3","art4","is_dm"];
 const HERO_NUM=["level","xp","str","dex","con","intel","wis","cha","ac","speed",
  "hp_max","hp_now","hp_temp","death_ok","death_fail","cp","sp","ep","gp","pp"];
 const SESS_COLS=["id","owner","party","number","played_on","title","place","present",
@@ -1505,7 +1553,7 @@ function heroRow(c){
  HERO_COLS.forEach(k=>{
   let v=c[k];
   if(HERO_NUM.indexOf(k)>-1) v=(v===""||v==null)?null:n(v);
-  else if(k==="inspiration") v=!!v;
+  else if(k==="inspiration"||k==="is_dm") v=!!v;
   else v=(v===""||v==null)?null:String(v);
   r[k]=v;
  });
@@ -1576,7 +1624,7 @@ function blankHero(){
   saves:"",skills:"",languages:"",proficiencies:"",traits:"",ideals:"",bonds:"",flaws:"",
   features:"",equipment:"",treasure:"",allies:"",cp:0,sp:0,ep:0,gp:0,pp:0,
   spell_ability:"",spells:"",slots:"",age:"",height:"",weight:"",eyes:"",skin:"",hair:"",
-  backstory:"",art1:"",art2:"",art3:"",art4:""};
+  backstory:"",art1:"",art2:"",art3:"",art4:"",is_dm:false};
 }
 function blankSession(num){
  return {id:"s"+Date.now()+Math.random().toString(36).slice(2,6),owner:user?user.id:"",
@@ -1605,6 +1653,9 @@ function heroForm(c){
   hs("Race / lineage","race",c.race,DND_RACE)+
   hs("Background","background",c.background,DND_BG)+
   hs("Alignment","alignment",c.alignment,DND_ALIGN)+
+  `<label class="fld"><span class="fld-l">Are you running the game?</span>
+   <div class="tog"><button class="tg${!c.is_dm?" on":""}" data-dm="0">Player</button>
+   <button class="tg${c.is_dm?" on":""}" data-dm="1">Dungeon Master</button></div></label>`+
   `<div class="two">${hf("Level","level",c.level,"1","number")}${hf("Experience","xp",c.xp,"0","number")}</div>
    <p class="note">${n(c.xp)?`That much XP puts them at level ${levelFromXp(c.xp)}. `:""}Proficiency bonus is ${sgn(pb)} at level ${n(c.level)||1}.</p>`
  ,true);
@@ -1720,12 +1771,14 @@ function viewDnd(){
  /* ---- dice ---- */
  h+=dicePanel();
 
- /* ---- the rest of the party ---- */
- const others=heroes.filter(x=>x.owner!==(user&&user.id));
- if(others.length){
-  h+=`<div class="dnd-sec"><h2>The party</h2><div class="party">`;
-  h+=others.map(o=>heroCard(o,false)).join("");
-  h+=`</div></div>`;
+ /* ---- the whole table, players first, the DM at the end ---- */
+ if(heroes.length){
+  const roll=heroes.slice().sort((a,b)=>(a.is_dm?1:0)-(b.is_dm?1:0));
+  h+=`<div class="dnd-sec"><h2>The party</h2>
+   <p class="note">${heroes.filter(x=>!x.is_dm).length} adventurer${
+     heroes.filter(x=>!x.is_dm).length===1?"":"s"}${
+     heroes.some(x=>x.is_dm)?" and a dungeon master":""}.</p>
+   <div class="party">${roll.map(partyCard).join("")}</div></div>`;
  }
 
  /* ---- campaign log ---- */
@@ -1737,6 +1790,26 @@ function viewDnd(){
    <div class="sec-b">${heroForm(heroEdit||mine||blankHero())}</div></details>`;
  h+=`</div>`;
  return h;
+}
+
+function partyCard(c){
+ const art=heroArt(c);
+ const me=c.owner===(user&&user.id);
+ const line=[c.race,c.klass].filter(Boolean).join(" ");
+ return `<div class="pcard${c.is_dm?" dm":""}${me?" me":""}">
+  <div class="pcard-in">
+   <div class="pcard-art">
+    ${art.length?`<img src="${esc(art[0])}" alt="" loading="lazy" onerror="this.remove()">`
+      :`<div class="pcard-noart">${esc((c.name||"?").charAt(0).toUpperCase())}</div>`}
+    <span class="pcard-sheen"></span>
+    ${c.is_dm?`<span class="pcard-badge">DM</span>`
+      :`<span class="pcard-lvl">${n(c.level)||1}</span>`}
+   </div>
+   <div class="pcard-foot">
+    <div class="pcard-name">${esc(c.name||"Unnamed")}</div>
+    <div class="pcard-line">${esc(line||(c.is_dm?"Dungeon Master":"—"))}</div>
+   </div>
+  </div></div>`;
 }
 
 function heroCard(c,mine){
@@ -2699,6 +2772,9 @@ document.addEventListener("click",async e=>{
  if(sm){const k=sm.getAttribute("data-sec");secOpen[k]=!secOpen[k];return;}
 
  // dice controls and the character toggles
+ const dm=e.target.closest&&e.target.closest("[data-dm]");
+ if(dm){heroEdit=heroEdit||Object.assign({},myHero()||blankHero());
+  heroEdit.is_dm=dm.getAttribute("data-dm")==="1"; render(); return;}
  const dd=e.target.closest&&e.target.closest("[data-die],[data-adv],[data-save],[data-skill]");
  if(dd){
   const die=dd.getAttribute("data-die"), adv=dd.getAttribute("data-adv");
@@ -2714,7 +2790,7 @@ document.addEventListener("click",async e=>{
  // a tap on the dim area outside the sheet closes it
  if(editing&&e.target&&e.target.classList&&e.target.classList.contains("sheet-wrap")){
   editing=null;render();return;}
- const t=e.target.closest("[data-tab],[data-act],[data-open],[data-panel],[data-pick],[data-graded],[data-pic],[data-clear],[data-toggletrait],[data-verif],[data-key],[data-die],[data-adv],[data-save],[data-skill],[data-d],[data-slot]");
+ const t=e.target.closest("[data-tab],[data-act],[data-open],[data-panel],[data-pick],[data-graded],[data-pic],[data-clear],[data-toggletrait],[data-verif],[data-key],[data-die],[data-adv],[data-save],[data-skill],[data-d],[data-slot],[data-dm]");
  if(!t)return;
  const d=t.dataset;
  if(d.clear!==undefined&&d.clear){e.stopPropagation();
