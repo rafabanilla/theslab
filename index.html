@@ -626,16 +626,17 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 .hero{position:relative;overflow:hidden;background:var(--ink);color:#fff;
  padding:26px 20px 24px;border-radius:3px;margin-bottom:6px}
 /* the logo sits in the corner of the dark boxes — present, not shouting */
-.box-logo{position:absolute;top:50%;right:16px;transform:translateY(-50%);
+/* aligned with the top of the heading rather than centred in the box */
+.box-logo{position:absolute;top:18px;right:16px;
  width:150px;height:auto;opacity:.92;pointer-events:none;user-select:none}
 .hero-t,.hero-s,.bs-l,.bs-v,.bs-d{position:relative;z-index:1}
 .hero-t,.hero-s,.bs-v,.bs-d{max-width:calc(100% - 166px)}
 @media (max-width:560px){
- .box-logo{width:104px;right:10px;opacity:.55}
+ .box-logo{width:104px;right:10px;top:14px;opacity:.55}
  .hero-t,.hero-s,.bs-v,.bs-d{max-width:calc(100% - 112px)}
 }
 @media (max-width:400px){
- .box-logo{width:82px;right:8px;opacity:.42}
+ .box-logo{width:82px;right:8px;top:12px;opacity:.42}
  .hero-t,.hero-s,.bs-v,.bs-d{max-width:calc(100% - 88px)}
 }
 .hero-t{font-family:var(--disp);font-weight:500;font-size:27px;line-height:1.15;margin:0 0 10px}
@@ -671,11 +672,8 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 </head>
 <body>
 <div id="splash" aria-hidden="true">
-<picture>
- <source srcset="logo-full.webp" type="image/webp">
- <img class="splash-logo" src="logo-full.png" alt="The Slab Club"
+<img class="splash-logo" src="logo-full.webp" alt="The Slab Club"
       width="760" height="743" fetchpriority="high">
-</picture>
 <div class="splash-bar"><i></i></div>
 </div>
 </div>
@@ -694,7 +692,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="87";
+const VERSION="88";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -1281,8 +1279,7 @@ function viewScan(){
  const pend=queue.filter(q=>q.state==="waiting"||q.state==="reading").length;
  const done=queue.filter(q=>q.state==="done").length;
  let h=`<div class="pane"><div class="hero">
-  <picture><source srcset="logo-full-sm.webp" type="image/webp">
-   <img class="box-logo" src="logo-full-sm.png" alt="" aria-hidden="true" loading="lazy"></picture>
+  <img class="box-logo" src="logo-full-sm.webp" alt="" aria-hidden="true" loading="lazy">
   <h1 class="hero-t">Photograph a collectible.<br>Get everything else.</h1>
   <p class="hero-s">Reads the item first, then looks up what it sells for. Cards, sealed boxes, Funko Pops. Items appear in seconds; prices land a little after. Shoot a stack and let it work.</p>
   <button class="btn big" data-act="shoot">Take a photo</button>
@@ -2029,8 +2026,7 @@ function render(){
  const st=stats();
  let h=`<header class="hdr"><div class="hdr-top">
   <div class="brand">
-   <picture><source srcset="logo-full-sm.webp" type="image/webp">
-    <img class="hdr-logo" src="logo-full-sm.png" alt="The Slab Club" width="380" height="372"></picture>
+   <img class="hdr-logo" src="logo-full-sm.webp" alt="The Slab Club" width="380" height="372">
   </div>
   <div class="hdr-right">
    <span class="save" id="saveflag"></span>
@@ -2049,9 +2045,8 @@ function render(){
  h+=tab==="scan"?viewScan():tab==="collection"?viewCollection():tab==="grading"?viewGrading():tab==="money"?viewMoney(st):tab==="dnd"?viewDnd():viewSetup();
  h+=(()=>{const q=quoteOfTheDay();return `<footer class="foot">
   <div class="foot-mid">
-   <picture><source srcset="logo-full-sm.webp" type="image/webp">
-    <img class="foot-logo" src="logo-full-sm.png" alt="The Slab Club"
-         width="380" height="372" loading="lazy"></picture>
+   <img class="foot-logo" src="logo-full-sm.webp" alt="The Slab Club"
+         width="380" height="372" loading="lazy">
    <span class="foot-ver">build ${VERSION}</span>
    <span class="foot-by">raf1983</span>
   </div>
@@ -2293,8 +2288,7 @@ function viewMoney(st){
  const byCat=Object.entries(m).sort((a,b)=>b[1].v-a[1].v);
  const pl=st.value-st.cost;
  let h=`<div class="pane"><div class="bigstat">
-  <picture><source srcset="logo-full-sm.webp" type="image/webp">
-   <img class="box-logo" src="logo-full-sm.png" alt="" aria-hidden="true" loading="lazy"></picture>
+  <img class="box-logo" src="logo-full-sm.webp" alt="" aria-hidden="true" loading="lazy">
   <div class="bs-l">Portfolio value</div>
   <div class="bs-v">${money(st.value)}</div>
   <div class="bs-d ${pl>=0?"pos":"neg"}">${pl>=0?"▲":"▼"} ${money(Math.abs(pl))} against ${money(st.cost)} in</div></div>
