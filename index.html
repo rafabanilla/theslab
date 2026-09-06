@@ -545,8 +545,12 @@ textarea.fld-i{resize:vertical}
 .foot{display:flex;align-items:center;gap:26px;
  max-width:820px;margin:8px auto 0;padding:22px 20px 30px;
  border-top:1px solid var(--rule);color:var(--mute)}
-.foot-mid{display:flex;flex-direction:column;align-items:center;gap:5px;flex-shrink:0;width:120px}
-.foot-logo{width:86px;height:auto;display:block;opacity:.95}
+.foot-mid{display:flex;flex-direction:column;align-items:center;gap:7px;flex-shrink:0;width:118px}
+/* This artwork carries its own glow, drawn for a dark background. On the
+   light footer that glow reads as haze, so give it a dark plate to sit on. */
+.foot-logo{width:82px;height:auto;display:block}
+.foot-plate{background:var(--ink);border-radius:6px;padding:7px 9px;display:inline-flex;
+ align-items:center;justify-content:center}
 .foot-name{font-family:var(--disp);font-size:11px;letter-spacing:.16em;color:var(--ink);opacity:.75}
 .foot-ver{font-family:var(--mono);font-size:9.5px;letter-spacing:.04em}
 .foot-by{font-family:var(--mono);font-size:9.5px;color:var(--red);opacity:.8;letter-spacing:.04em}
@@ -626,18 +630,27 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 .hero{position:relative;overflow:hidden;background:var(--ink);color:#fff;
  padding:26px 20px 24px;border-radius:3px;margin-bottom:6px}
 /* the logo sits in the corner of the dark boxes — present, not shouting */
-/* aligned with the top of the heading rather than centred in the box */
-.box-logo{position:absolute;top:18px;right:16px;
- width:150px;height:auto;opacity:.92;pointer-events:none;user-select:none}
+/* The scan hero is tall and the portfolio box is short, so they need
+   different treatments: top-aligned in the hero, centred in the stat box. */
+.box-logo{position:absolute;right:16px;height:auto;opacity:.92;
+ pointer-events:none;user-select:none}
+.hero .box-logo{top:16px;width:132px}
+.bigstat .box-logo{top:50%;transform:translateY(-50%);width:104px;right:14px}
 .hero-t,.hero-s,.bs-l,.bs-v,.bs-d{position:relative;z-index:1}
-.hero-t,.hero-s,.bs-v,.bs-d{max-width:calc(100% - 166px)}
+.hero-t,.hero-s{max-width:calc(100% - 150px)}
+.bs-l,.bs-v,.bs-d{max-width:calc(100% - 124px)}
 @media (max-width:560px){
- .box-logo{width:104px;right:10px;top:14px;opacity:.55}
- .hero-t,.hero-s,.bs-v,.bs-d{max-width:calc(100% - 112px)}
+ .hero .box-logo{width:96px;top:12px}
+ .bigstat .box-logo{width:84px;right:10px}
+ .hero-t,.hero-s{max-width:calc(100% - 106px)}
+ .bs-l,.bs-v,.bs-d{max-width:calc(100% - 96px)}
 }
 @media (max-width:400px){
- .box-logo{width:82px;right:8px;top:12px;opacity:.42}
- .hero-t,.hero-s,.bs-v,.bs-d{max-width:calc(100% - 88px)}
+ .hero .box-logo{width:76px;top:10px}
+ .bigstat .box-logo{width:68px;right:8px}
+ .box-logo{opacity:.5}
+ .hero-t,.hero-s{max-width:calc(100% - 84px)}
+ .bs-l,.bs-v,.bs-d{max-width:calc(100% - 78px)}
 }
 .hero-t{font-family:var(--disp);font-weight:500;font-size:27px;line-height:1.15;margin:0 0 10px}
 .hero-s{font-size:13px;line-height:1.6;opacity:.7;margin:0 0 18px}
@@ -692,7 +705,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="88";
+const VERSION="89";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -2045,8 +2058,8 @@ function render(){
  h+=tab==="scan"?viewScan():tab==="collection"?viewCollection():tab==="grading"?viewGrading():tab==="money"?viewMoney(st):tab==="dnd"?viewDnd():viewSetup();
  h+=(()=>{const q=quoteOfTheDay();return `<footer class="foot">
   <div class="foot-mid">
-   <img class="foot-logo" src="logo-full-sm.webp" alt="The Slab Club"
-         width="380" height="372" loading="lazy">
+   <span class="foot-plate"><img class="foot-logo" src="logo-full-sm.webp"
+     alt="The Slab Club" width="380" height="372" loading="lazy"></span>
    <span class="foot-ver">build ${VERSION}</span>
    <span class="foot-by">raf1983</span>
   </div>
