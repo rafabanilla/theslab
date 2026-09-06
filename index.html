@@ -44,8 +44,8 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .hdr{background:var(--ink);color:#fff;padding:calc(14px + env(safe-area-inset-top)) 16px 0;position:sticky;top:0;z-index:20}
 .hdr-top{display:flex;align-items:center;justify-content:space-between;padding-bottom:3px}
 .brand{display:flex;align-items:center;gap:9px}
-.hdr-logo{height:38px;width:auto;flex-shrink:0;display:block}
-@media (max-width:400px){.hdr-logo{height:32px}}
+.hdr-logo{height:44px;width:auto;flex-shrink:0;display:block}
+@media (max-width:400px){.hdr-logo{height:36px}}
 .wordmark{font-family:var(--disp);letter-spacing:.14em;font-size:19px}
 .wm-1{font-weight:400;opacity:.55;margin-right:6px}
 .wm-2{font-weight:600}
@@ -305,7 +305,7 @@ textarea.fld-i{resize:vertical}
  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:34px;
  transition:opacity .45s ease, visibility .45s ease}
 #splash.gone{opacity:0;visibility:hidden;pointer-events:none}
-.splash-logo{width:min(78vw,420px);height:auto;
+.splash-logo{width:min(82vw,460px);height:auto;
  animation:crestIn .9s cubic-bezier(.2,.7,.3,1) both}
 @keyframes crestIn{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
 .splash-bar{width:min(46vw,190px);height:2px;background:rgba(255,255,255,.14);
@@ -545,8 +545,8 @@ textarea.fld-i{resize:vertical}
 .foot{display:flex;align-items:center;gap:26px;
  max-width:820px;margin:8px auto 0;padding:22px 20px 30px;
  border-top:1px solid var(--rule);color:var(--mute)}
-.foot-mid{display:flex;flex-direction:column;align-items:center;gap:5px;flex-shrink:0;width:110px}
-.foot-logo{width:56px;height:auto;display:block;opacity:.92}
+.foot-mid{display:flex;flex-direction:column;align-items:center;gap:5px;flex-shrink:0;width:120px}
+.foot-logo{width:86px;height:auto;display:block;opacity:.95}
 .foot-name{font-family:var(--disp);font-size:11px;letter-spacing:.16em;color:var(--ink);opacity:.75}
 .foot-ver{font-family:var(--mono);font-size:9.5px;letter-spacing:.04em}
 .foot-by{font-family:var(--mono);font-size:9.5px;color:var(--red);opacity:.8;letter-spacing:.04em}
@@ -626,17 +626,17 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 .hero{position:relative;overflow:hidden;background:var(--ink);color:#fff;
  padding:26px 20px 24px;border-radius:3px;margin-bottom:6px}
 /* the logo sits in the corner of the dark boxes — present, not shouting */
-.box-logo{position:absolute;top:50%;right:18px;transform:translateY(-50%);
- width:104px;height:auto;opacity:.9;pointer-events:none;user-select:none}
+.box-logo{position:absolute;top:50%;right:16px;transform:translateY(-50%);
+ width:150px;height:auto;opacity:.92;pointer-events:none;user-select:none}
 .hero-t,.hero-s,.bs-l,.bs-v,.bs-d{position:relative;z-index:1}
-.hero-t,.hero-s,.bs-v,.bs-d{max-width:calc(100% - 116px)}
+.hero-t,.hero-s,.bs-v,.bs-d{max-width:calc(100% - 166px)}
 @media (max-width:560px){
- .box-logo{width:72px;right:12px;opacity:.5}
- .hero-t,.hero-s,.bs-v,.bs-d{max-width:calc(100% - 78px)}
+ .box-logo{width:104px;right:10px;opacity:.55}
+ .hero-t,.hero-s,.bs-v,.bs-d{max-width:calc(100% - 112px)}
 }
 @media (max-width:400px){
- .box-logo{width:58px;right:10px;opacity:.38}
- .hero-t,.hero-s,.bs-v,.bs-d{max-width:calc(100% - 62px)}
+ .box-logo{width:82px;right:8px;opacity:.42}
+ .hero-t,.hero-s,.bs-v,.bs-d{max-width:calc(100% - 88px)}
 }
 .hero-t{font-family:var(--disp);font-weight:500;font-size:27px;line-height:1.15;margin:0 0 10px}
 .hero-s{font-size:13px;line-height:1.6;opacity:.7;margin:0 0 18px}
@@ -671,8 +671,11 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 </head>
 <body>
 <div id="splash" aria-hidden="true">
-<img class="splash-logo" src="icon-512-transparent.png" alt="The Slab Club"
-     width="512" height="512" fetchpriority="high">
+<picture>
+ <source srcset="logo-full.webp" type="image/webp">
+ <img class="splash-logo" src="logo-full.png" alt="The Slab Club"
+      width="760" height="743" fetchpriority="high">
+</picture>
 <div class="splash-bar"><i></i></div>
 </div>
 </div>
@@ -691,7 +694,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="86";
+const VERSION="87";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -1278,7 +1281,8 @@ function viewScan(){
  const pend=queue.filter(q=>q.state==="waiting"||q.state==="reading").length;
  const done=queue.filter(q=>q.state==="done").length;
  let h=`<div class="pane"><div class="hero">
-  <img class="box-logo" src="icon-512-transparent.png" alt="" aria-hidden="true" loading="lazy">
+  <picture><source srcset="logo-full-sm.webp" type="image/webp">
+   <img class="box-logo" src="logo-full-sm.png" alt="" aria-hidden="true" loading="lazy"></picture>
   <h1 class="hero-t">Photograph a collectible.<br>Get everything else.</h1>
   <p class="hero-s">Reads the item first, then looks up what it sells for. Cards, sealed boxes, Funko Pops. Items appear in seconds; prices land a little after. Shoot a stack and let it work.</p>
   <button class="btn big" data-act="shoot">Take a photo</button>
@@ -2025,7 +2029,8 @@ function render(){
  const st=stats();
  let h=`<header class="hdr"><div class="hdr-top">
   <div class="brand">
-   <img class="hdr-logo" src="icon-512-transparent.png" alt="The Slab Club" width="512" height="512">
+   <picture><source srcset="logo-full-sm.webp" type="image/webp">
+    <img class="hdr-logo" src="logo-full-sm.png" alt="The Slab Club" width="380" height="372"></picture>
   </div>
   <div class="hdr-right">
    <span class="save" id="saveflag"></span>
@@ -2044,8 +2049,9 @@ function render(){
  h+=tab==="scan"?viewScan():tab==="collection"?viewCollection():tab==="grading"?viewGrading():tab==="money"?viewMoney(st):tab==="dnd"?viewDnd():viewSetup();
  h+=(()=>{const q=quoteOfTheDay();return `<footer class="foot">
   <div class="foot-mid">
-   <img class="foot-logo" src="icon-512-transparent.png" alt="The Slab Club"
-        width="512" height="512" loading="lazy">
+   <picture><source srcset="logo-full-sm.webp" type="image/webp">
+    <img class="foot-logo" src="logo-full-sm.png" alt="The Slab Club"
+         width="380" height="372" loading="lazy"></picture>
    <span class="foot-ver">build ${VERSION}</span>
    <span class="foot-by">raf1983</span>
   </div>
@@ -2287,7 +2293,8 @@ function viewMoney(st){
  const byCat=Object.entries(m).sort((a,b)=>b[1].v-a[1].v);
  const pl=st.value-st.cost;
  let h=`<div class="pane"><div class="bigstat">
-  <img class="box-logo" src="icon-512-transparent.png" alt="" aria-hidden="true" loading="lazy">
+  <picture><source srcset="logo-full-sm.webp" type="image/webp">
+   <img class="box-logo" src="logo-full-sm.png" alt="" aria-hidden="true" loading="lazy"></picture>
   <div class="bs-l">Portfolio value</div>
   <div class="bs-v">${money(st.value)}</div>
   <div class="bs-d ${pl>=0?"pos":"neg"}">${pl>=0?"▲":"▼"} ${money(Math.abs(pl))} against ${money(st.cost)} in</div></div>
