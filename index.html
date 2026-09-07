@@ -812,7 +812,7 @@ body.gated{background:#07090C;padding-bottom:0}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="104";
+const VERSION="105";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -1396,6 +1396,52 @@ async function edgeCall(name,payload,ms){
 }
 async function scanAPI(b64){
  return edgeCall("scan",{image:b64,mediaType:"image/jpeg"},60000);
+}
+/* Re-identify an existing card from both its photos. The back of a card is
+   where the number, set code, or serial often actually lives — plenty of
+   real sets never print that on the front at all — but a first scan only
+   ever sees whichever side got photographed first. This fetches both
+   stored photos, sends them together, and only fills in fields that were
+   genuinely blank: it never overwrites something already confirmed. */
+async function urlToBase64(url){
+ const r=await fetch(url);
+ if(!r.ok)throw new Error("couldn't fetch that photo");
+ const blob=await r.blob();
+ const mediaType=blob.type||"image/jpeg";
+ const b64=await new Promise((res,rej)=>{
+  const fr=new FileReader();
+  fr.onload=()=>res(String(fr.result).split(",")[1]||"");
+  fr.onerror=()=>rej(new Error("couldn't read that photo"));
+  fr.readAsDataURL(blob);
+ });
+ return {b64,mediaType};
+}
+async function rescanAPI(front,back){
+ return edgeCall("scan",{image:front.b64,mediaType:front.mediaType,
+  imageBack:back.b64,mediaTypeBack:back.mediaType},60000);
+}
+async function rescanOne(id){
+ const c=S.cards.find(x=>x.id===id);
+ if(!c||!c.photoF||!c.photoB)return;
+ toast("Reading both photos…");
+ try{
+  const [front,back]=await Promise.all([urlToBase64(c.photoF),urlToBase64(c.photoB)]);
+  const r=await rescanAPI(front,back);
+  tally("scan",r.usage);
+  const FIELDS=["year","set","subject","num","variant","serial"];
+  const filled=[];
+  FIELDS.forEach(k=>{if(!c[k]&&r[k]){c[k]=r[k];filled.push(k);}});
+  if(filled.length){
+   save();pushCard(c);
+   if(editing&&editing.id===c.id)FIELDS.forEach(k=>{editing[k]=c[k];});
+   render();
+   toast("Filled in from the back: "+filled.join(", "));
+  }else{
+   toast(r.note?String(r.note).slice(0,120):"Nothing new found on either photo");
+  }
+ }catch(e){
+  toast("Couldn't re-check: "+(e&&e.message||e));
+ }
 }
 function enqueue(files){
  for(const f of files)queue.push({qid:"q"+Date.now()+Math.random().toString(36).slice(2,5),
@@ -2883,6 +2929,7 @@ function viewSheet(){
    <div class="shot" data-pic="F"><span class="shot-l">Front</span><img id="imgF" style="display:none"><span class="shot-x" data-clear="F" style="display:none">clear</span></div>
    <div class="shot" data-pic="B"><span class="shot-l">Back</span><img id="imgB" style="display:none"><span class="shot-x" data-clear="B" style="display:none">clear</span></div>
   </div>
+  ${c.photoF&&c.photoB?`<button class="btn ghost wide" data-act="rescan" style="margin-top:6px">Re-check number & set from both photos</button>`:""}
   ${fld("SKU","sku",c.sku,"MJ-018")}
   <div class="row2">${sel("Category","cat",c.cat,CATS)}${fld("Year","year",c.year,"1996")}</div>
   ${fld("Set","set",c.set,"Topps Chrome")}
@@ -3486,6 +3533,9 @@ document.addEventListener("click",async e=>{
    S.cards=add.concat(S.cards);pushMany(add);render();toast(`Added ${add.length} cards`);break;}
   case"repriceone":if(editing){commit();
    queueReprice([S.cards.find(c=>c.id===editing.id)],true);editing=null;render();}break;
+  case"rescan":{
+   if(!editing||!editing.photoF||!editing.photoB){toast("Add both a front and back photo first");break;}
+   commit();rescanOne(editing.id);break;}
   case"repriceview":{const set=(window._visible||[]).filter(c=>c.subject||c.set);
    if(confirmSpend(set.length))queueReprice(set);break;}
   case"repricestale":{const set=S.cards.filter(isStale);
