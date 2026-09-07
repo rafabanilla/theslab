@@ -812,7 +812,7 @@ body.gated{background:#07090C;padding-bottom:0}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="102";
+const VERSION="103";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -1554,6 +1554,55 @@ function queueReprice(cards,includeVerified){
  if(!ids.length){toast("Nothing to refresh");return;}
  rq=rq.concat(ids);rDone=0;rFail=0;render();rpump();
 }
+/* ============================================================
+   Real sold comps accumulate across refreshes; guides and estimates don't.
+   A search that comes up empty this run must never erase comps a past run
+   actually confirmed, and a genuinely new sale should fold in alongside
+   what's already known rather than replace it outright. There is no
+   discrete comp list behind a guide figure or a reasoned estimate, so
+   those stay a fresh live result every time — nothing there to protect.
+   ============================================================ */
+const COMP_MAX_AGE_DAYS=548;   // ~18 months — past this, a sale stops being "current"
+const COMP_CAP=12;
+function compKey(c){return (c.price||"")+"|"+(c.date||"")+"|"+(c.source||"");}
+function compFreshEnough(dateStr){
+ if(!dateStr)return true;      // an undated comp isn't dropped for lack of one
+ const d=new Date(dateStr);
+ if(isNaN(d))return true;
+ return (Date.now()-d.getTime())/864e5<=COMP_MAX_AGE_DAYS;
+}
+function mergeComps(oldComps,newComps){
+ const seen={},kept=[];
+ (oldComps||[]).concat(newComps||[]).filter(c=>n(c.price)>0).forEach(c=>{
+  const k=compKey(c);
+  if(seen[k]||!compFreshEnough(c.date))return;
+  seen[k]=true;kept.push(c);
+ });
+ kept.sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")));
+ return kept.slice(0,COMP_CAP);
+}
+function medianOf(nums){
+ if(!nums.length)return 0;
+ const s=nums.slice().sort((a,b)=>a-b),m=Math.floor(s.length/2);
+ return s.length%2?s[m]:(s[m-1]+s[m])/2;
+}
+function accumulateBucket(oldB,newB){
+ const oldHasSales=oldB&&oldB.method==="sales"&&oldB.comps&&oldB.comps.length;
+ const newHasSales=newB&&newB.method==="sales"&&newB.comps&&newB.comps.length;
+ if(!oldHasSales&&!newHasSales)return newB;   // nothing to accumulate — take it fresh
+ if(oldHasSales&&!newHasSales)return oldB;    // this run found nothing — keep what we had
+ const merged=mergeComps(oldHasSales?oldB.comps:[],newB.comps);
+ if(!merged.length)return newB;
+ const prices=merged.map(c=>n(c.price));
+ return {
+  method:"sales", n:merged.length,
+  median:Math.round(medianOf(prices)),
+  low:Math.round(Math.min(...prices)), high:Math.round(Math.max(...prices)),
+  newest:merged[0].date||"", comps:merged.slice(0,8),
+  guides:(newB&&newB.guides)||(oldB&&oldB.guides)||[],
+ };
+}
+
 /* Three cards at a time. Serial was safe but made 300 cards a two-hour job;
    three is comfortably inside the API's concurrency limits and cuts it to
    under an hour. Each worker re-resolves its card after the await, so a sync
@@ -1570,12 +1619,19 @@ async function repriceOne(id){
   if(r.path==="direct")tally("direct",{in:0,out:0,searches:0});
   const c=S.cards.find(x=>x.id===id)||c0;
   const before=n(c.vRaw);
-  const ev=r.evidence||null;
+  const oldEv=c.evidence||{};
+  const rawEv=r.evidence||null;
+  const ev=rawEv?{
+   current:accumulateBucket(oldEv.current,rawEv.current),
+   psa9:accumulateBucket(oldEv.psa9,rawEv.psa9),
+   psa10:accumulateBucket(oldEv.psa10,rawEv.psa10),
+   tiers:rawEv.tiers,pop:rawEv.pop,volume:rawEv.volume,checkedOn:rawEv.checkedOn,
+  }:null;
   const got=(b)=>ev&&ev[b]&&n(ev[b].median)>0;
-  if(got("current"))c.vRaw=n(r.vRaw);
+  if(got("current"))c.vRaw=n(ev.current.median);
   if(!c.graded){
-   if(got("psa9"))c.v9=n(r.v9);
-   if(got("psa10"))c.v10=n(r.v10);
+   if(got("psa9"))c.v9=n(ev.psa9.median);
+   if(got("psa10"))c.v10=n(ev.psa10.median);
   }
   c.evidence=ev;
   c.pricePath=r.path||"model";
@@ -1587,12 +1643,18 @@ async function repriceOne(id){
   if(r.note&&ev)ev.note=String(r.note).slice(0,400);
   // The first paid lookup discovers the guide page; from then on it is cheap.
   if(r.guideUrl&&!c.pcUrl)c.pcUrl=String(r.guideUrl).slice(0,300);
-  // Flag only what a person actually needs to look at. Medium confidence is
-  // the normal case; flagging it put a warning on 71% of the collection and
-  // made the flag worthless.
-  c.review=(r.confidence==="low")||(ev&&ev.current&&ev.current.method==="none");
+  // Confidence and the review flag reflect the accumulated evidence behind
+  // the number actually on screen, not just whatever this one call found —
+  // a run that added nothing to an already-solid comp pool should not read
+  // as weaker than the run before it.
+  const curN=ev&&ev.current?n(ev.current.n):0;
+  const curMethod=ev&&ev.current?ev.current.method:"none";
+  const confidence=curN>=3?"high":(curN>=1||curMethod==="guide")?"medium"
+    :curMethod==="guestimate"?"very-low":"low";
+  c.review=(confidence==="low")||(curMethod==="none");
   await pushCard(c);
-  logPrice(c,r);
+  const totalComps=curN+(ev&&ev.psa9?n(ev.psa9.n):0)+(ev&&ev.psa10?n(ev.psa10.n):0);
+  logPrice(c,Object.assign({},r,{totalComps,confidence}));
   rDone++;
   if(!n(r.totalComps))rThin++;
  }catch(e){
