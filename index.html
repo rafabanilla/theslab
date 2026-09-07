@@ -340,6 +340,12 @@ textarea.fld-i{resize:vertical}
  font-size:11.5px;line-height:1.5;color:var(--mute)}
 .ev-warn{background:#FDF0D9;border-left:3px solid var(--gold);padding:9px 10px;margin-top:9px;
  font-size:11.5px;line-height:1.5;color:#5C4409}
+.hist{margin-top:14px;padding-top:12px;border-top:1px solid var(--rule)}
+.hist-hd{font-family:var(--disp);font-size:12px;letter-spacing:.03em;text-transform:uppercase;
+ color:var(--ink);display:flex;justify-content:space-between;align-items:baseline}
+.hist-svg{width:100%;height:auto;margin-top:8px;display:block}
+.hist-axis{display:flex;justify-content:space-between;font-size:10.5px;
+ font-family:var(--mono);color:var(--mute);margin-top:2px}
 .val-n{font-family:var(--mono);font-size:9.5px;font-weight:400;color:var(--mute);letter-spacing:.02em}
 /* ---- splash ---------------------------------------------------------
    Sits in the HTML so it paints before any script runs, then fades once
@@ -806,7 +812,7 @@ body.gated{background:#07090C;padding-bottom:0}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="101";
+const VERSION="102";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -1183,7 +1189,66 @@ async function logPrice(c,r){
   body:JSON.stringify([{card_id:c.id,user_id:user.id,
    v_raw:n(c.vRaw)||null,v9:n(c.v9)||null,v10:n(c.v10)||null,
    n_comps:n(r.totalComps)||0,confidence:r.confidence||""}])},15000,"history");
+  // Keep the open sheet's graph current if this reprice happened while it
+  // was on screen — otherwise the new point only shows up on next open.
+  if(historyCache[c.id])loadHistory(c.id).then(render);
  }catch(_){}
+}
+const historyCache={};   // card id -> array of rows, "loading", or absent
+async function loadHistory(id){
+ if(!user||!cfg||!id)return;
+ historyCache[id]="loading";
+ try{
+  const rows=await rest("/rest/v1/price_history?card_id=eq."+encodeURIComponent(id)
+    +"&select=v_raw,v9,v10,n_comps,confidence,checked_at"
+    +"&order=checked_at.asc&limit=60",
+   {method:"GET",headers:restHeaders()},15000,"history");
+  historyCache[id]=Array.isArray(rows)?rows:[];
+ }catch(_){historyCache[id]=[];}
+}
+/* A compact inline line chart — no chart library, just SVG, matching how
+   every other visual in this app is built. Confidence colours the dots so
+   a shaky "very-low" run stands out from a solid "sales" one at a glance. */
+function historyConfColor(conf){
+ return conf==="high"?"#2E7D32"
+      : conf==="medium"?"var(--gold)"
+      : conf==="very-low"?"#B23B3B"
+      : "var(--mute)";
+}
+function historyChart(id){
+ const rows=historyCache[id];
+ if(!rows||rows==="loading")return"";
+ const pts=rows.filter(r=>n(r.v_raw)>0);
+ if(pts.length<2){
+  return pts.length===1
+   ?`<div class="hist"><div class="hist-hd">Price history</div>
+     <p class="note" style="margin:4px 0 0">Only one price on record — this fills in as you refresh over time.</p></div>`
+   :"";
+ }
+ const W=560,H=150,PADX=10,PADY=18;
+ const vals=pts.map(r=>n(r.v_raw));
+ const lo=Math.min(...vals), hi=Math.max(...vals);
+ const span=(hi-lo)||1;
+ const stepX=pts.length>1?(W-PADX*2)/(pts.length-1):0;
+ const xy=pts.map((r,i)=>({
+  x:PADX+i*stepX,
+  y:H-PADY-((n(r.v_raw)-lo)/span)*(H-PADY*2),
+  r,
+ }));
+ const path=xy.map((p,i)=>(i?"L":"M")+p.x.toFixed(1)+","+p.y.toFixed(1)).join(" ");
+ const dots=xy.map(p=>
+  `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.2" fill="${historyConfColor(p.r.confidence)}"/>`
+ ).join("");
+ const firstDate=esc(String(pts[0].checked_at||"").slice(0,10));
+ const lastDate=esc(String(pts[pts.length-1].checked_at||"").slice(0,10));
+ return `<div class="hist">
+  <div class="hist-hd">Price history<span class="ev-when">${pts.length} check${pts.length===1?"":"s"}</span></div>
+  <svg viewBox="0 0 ${W} ${H}" class="hist-svg" preserveAspectRatio="none">
+   <path d="${path}" fill="none" stroke="var(--ink,#1a1a1a)" stroke-width="1.5"/>
+   ${dots}
+  </svg>
+  <div class="hist-axis"><span>${firstDate} · ${money(lo)}</span><span>${lastDate} · ${money(hi)}</span></div>
+ </div>`;
 }
 function findSkuDupes(){
  const seen={},dupes=[];
@@ -2917,6 +2982,7 @@ function evidencePanel(c){
    :(ev.current&&ev.current.method==="guide")
     ?`<div class="ev-note">No individual sales were visible, so these come from a market guide that aggregates eBay sales. Reasonable for sorting, worth verifying before you list anything above $100.</div>`
     :`<div class="ev-warn">Nothing found for this one. Any figure above is a placeholder, not a valuation — search it yourself before pricing.</div>`}
+  ${historyChart(c.id)}
  </div>`;
 }
 function fld(label,k,v,ph,kind,type){
@@ -3040,7 +3106,8 @@ document.addEventListener("click",async e=>{
  if(d.tab){tab=d.tab;render();window.scrollTo(0,0);
   if(d.tab==="dnd"&&!dndLoaded)loadDnd().then(render);
   return;}
- if(d.open){editing=JSON.parse(JSON.stringify(S.cards.find(c=>c.id===d.open)));confirmDel=false;render();return;}
+ if(d.open){editing=JSON.parse(JSON.stringify(S.cards.find(c=>c.id===d.open)));confirmDel=false;render();
+  loadHistory(d.open).then(render);return;}
  if(d.panel!==undefined){F.open=(F.open===d.panel?"":d.panel);render();return;}
  if(d.pick){
   const v=d.val;
