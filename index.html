@@ -803,7 +803,7 @@ body.gated{background:#07090C;padding-bottom:0}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="95";
+const VERSION="96";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -837,7 +837,7 @@ function setTrait(c,t,on){
  if(on)list.push(t);
  c.traits=list.join(",");
 }
-const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90,nickname:"",avatar:"",gradeWith:"PSA",dupOk:"",goats:"Michael Jordan, Kobe Bryant, LeBron James, Stephen Curry, Magic Johnson, Larry Bird, Kareem Abdul-Jabbar, Wilt Chamberlain, Shaquille O'Neal, Tim Duncan, Victor Wembanyama, Shohei Ohtani, Babe Ruth, Mickey Mantle, Willie Mays, Hank Aaron, Ken Griffey Jr, Mike Trout, Tom Brady, Jerry Rice, Joe Montana, Peyton Manning, Patrick Mahomes, Pele, Diego Maradona, Lionel Messi, Cristiano Ronaldo, Kylian Mbappe, Wayne Gretzky, Mario Lemieux, Connor McDavid, Muhammad Ali, Mike Tyson, Jon Jones, Roger Federer, Serena Williams, Rafael Nadal, Novak Djokovic, Tiger Woods, Jack Nicklaus, Lewis Hamilton, Ayrton Senna, Michael Schumacher, Caitlin Clark, A'ja Wilson, Diana Taurasi",usage:null};
+const DEF_SET={photoBase:"",photoExt:"jpg",gradingCost:30,feePct:13,currency:"$",staleDays:90,nickname:"",avatar:"",gradeWith:"PSA",dupOk:"",ladderFrom:25,goats:"Michael Jordan, Kobe Bryant, LeBron James, Stephen Curry, Magic Johnson, Larry Bird, Kareem Abdul-Jabbar, Wilt Chamberlain, Shaquille O'Neal, Tim Duncan, Victor Wembanyama, Shohei Ohtani, Babe Ruth, Mickey Mantle, Willie Mays, Hank Aaron, Ken Griffey Jr, Mike Trout, Tom Brady, Jerry Rice, Joe Montana, Peyton Manning, Patrick Mahomes, Pele, Diego Maradona, Lionel Messi, Cristiano Ronaldo, Kylian Mbappe, Wayne Gretzky, Mario Lemieux, Connor McDavid, Muhammad Ali, Mike Tyson, Jon Jones, Roger Federer, Serena Williams, Rafael Nadal, Novak Djokovic, Tiger Woods, Jack Nicklaus, Lewis Hamilton, Ayrton Senna, Michael Schumacher, Caitlin Clark, A'ja Wilson, Diana Taurasi",usage:null};
 const CONF={low:{p10:.08,p9:.32},med:{p10:.22,p9:.45},high:{p10:.42,p9:.42}};
 /* Where a submission actually lands, by how the card looks. Real grading
    outcomes spread across 7 through 10 — treating everything below 9 as
@@ -1461,7 +1461,7 @@ async function repriceAPI(c){
   serial:c.serial,cat:c.cat,graded:c.graded,grader:c.grader,grade:c.grade,
   // once known, this turns every future lookup into a cheap fixed-page read
   pcUrl:c.pcUrl||""};
- return edgeCall("reprice",{card},140000);
+ return edgeCall("reprice",{card,ladderFrom:n(S.settings.ladderFrom)||25},140000);
 }
 function avgLookupCost(){
  const t=S.settings.usage;
@@ -2636,6 +2636,8 @@ function viewSetup(){
  /* ---------- numbers ---------- */
  const numbers=`
   ${fld("Grading cost per item (incl. shipping)","gradingCost",S.settings.gradingCost,"","set","number")}
+   ${fld("Look up a grade ladder above","ladderFrom",S.settings.ladderFrom,"25","set","number")}
+   <p class="note">Pokemon singles under this price are priced free and quickly, with no grade ladder. Above it, the app spends a little to find the published ladder and the population report — worth it on a card you might grade, wasteful on a bulk common.</p>
   ${(()=>{const opts=["PSA","BGS","SGC","CGC"];
    return `<label class="fld"><span class="fld-l">Who you send cards to</span>
    <select class="fld-i" data-set="gradeWith">${opts.map(o=>
