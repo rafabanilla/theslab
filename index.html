@@ -782,6 +782,9 @@ body.gated{background:#07090C;padding-bottom:0}
 .tips b{color:var(--ink)}
 .flag.warn{color:#5C4409;background:#FDF0D9;font-weight:600}
 .flag.ok{color:var(--green);background:#E4F2EA;font-weight:600}
+.flag.pricing{color:#5C4409;background:#FDF0D9;font-weight:600;display:inline-flex;align-items:center;gap:5px}
+.flag.queued{color:var(--mute);background:#EDEFF2;font-weight:400}
+.pulse-dot{width:6px;height:6px;border-radius:50%;background:var(--gold);flex-shrink:0;animation:pl 1.1s ease-in-out infinite}
 @media (min-width:700px){
   .pane{padding:22px}
   .sheet-wrap{align-items:center;padding:20px}
@@ -812,7 +815,7 @@ body.gated{background:#07090C;padding-bottom:0}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="106";
+const VERSION="107";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","CCG","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -1570,6 +1573,10 @@ function isStale(c){
  return daysSince(c.pricedOn)>n(S.settings.staleDays||90);
 }
 let rq=[], rDone=0, rFail=0, rThin=0;
+// Which specific cards are mid-fetch right now, as opposed to rq (still
+// waiting its turn) — lets each card show its own status while scrolling,
+// instead of one global count with no way to tell which items it means.
+let rActiveIds=new Set();
 
 async function repriceAPI(c){
  const card={year:c.year,set:c.set,subject:c.subject,num:c.num,variant:c.variant,
@@ -1720,9 +1727,9 @@ async function repriceOne(id){
 function rpump(){
  while(rActive<RLIMIT&&rq.length){
   const id=rq.shift();
-  rActive++;
+  rActive++;rActiveIds.add(id);
   repriceOne(id).catch(()=>{}).then(()=>{
-   rActive--;
+   rActive--;rActiveIds.delete(id);
    render();
    rpump();
   });
@@ -2332,8 +2339,22 @@ function render(){
  document.body.classList[gate?"add":"remove"]("gated");
  if(!cfg||!sb){document.getElementById("app").innerHTML=viewConfig();return;}
  if(!user){document.getElementById("app").innerHTML=viewSignIn();return;}
- const st=stats();
- let h=`<header class="hdr"><div class="hdr-top">
+
+ // A full-screen overlay (.sheet-wrap is position:fixed, inset:0) hides
+ // literally everything under it. While one is open there is no point
+ // building the header ticker, the repriceBanner, or the current tab's
+ // content — viewCollection() alone filters, sorts and stringifies every
+ // card in the vault. That used to happen on every render() regardless,
+ // and a background reprice tick calls render() on every single
+ // completion — so with a sheet open over a large collection, each
+ // background price finishing was quietly doing a full expensive list
+ // rebuild for a screen that wasn't even showing it, competing with
+ // whatever the person was doing inside the sheet at that moment.
+ const covered=!!(editing||dupReview||heroView);
+ let h="";
+ if(!covered){
+  const st=stats();
+  h=`<header class="hdr"><div class="hdr-top">
   <div class="brand">
    <img class="hdr-logo" src="logo-full-sm.webp" alt="The Slab Club" width="380" height="372">
   </div>
@@ -2350,9 +2371,9 @@ function render(){
   </div></header>
   <nav class="tabs">${[["scan","Scan"],["collection","Items"],["grading","Grading"],["money","Money"],["dnd","D&D"],["setup","Setup"]]
    .map(([k,l])=>`<button class="tab${tab===k?" on":""}" data-tab="${k}">${l}</button>`).join("")}</nav>`;
- h+=repriceBanner();
- h+=tab==="scan"?viewScan():tab==="collection"?viewCollection():tab==="grading"?viewGrading():tab==="money"?viewMoney(st):tab==="dnd"?viewDnd():viewSetup();
- h+=(()=>{const q=quoteOfTheDay();return `<footer class="foot">
+  h+=repriceBanner();
+  h+=tab==="scan"?viewScan():tab==="collection"?viewCollection():tab==="grading"?viewGrading():tab==="money"?viewMoney(st):tab==="dnd"?viewDnd():viewSetup();
+  h+=(()=>{const q=quoteOfTheDay();return `<footer class="foot">
   <div class="foot-mid">
    <span class="foot-plate"><img class="foot-logo" src="logo-full-sm.webp"
      alt="The Slab Club" width="380" height="372" loading="lazy"></span>
@@ -2361,7 +2382,8 @@ function render(){
   </div>
   <blockquote class="foot-q"><span class="foot-qt">${esc(q[0])}</span><cite>${esc(q[1])}</cite></blockquote>
  </footer>`;})();
- if(tab==="collection")h+=`<button class="fab" data-act="new" aria-label="Add a card">+</button>`;
+  if(tab==="collection")h+=`<button class="fab" data-act="new" aria-label="Add a card">+</button>`;
+ }
  if(editing)h+=viewSheet();
  if(dupReview)h+=viewDupes();
  if(heroView)h+=heroSheet(heroes.find(x=>x.id===heroView));
@@ -2528,6 +2550,8 @@ function slabRow(c){
  c.evidence&&c.evidence.current?`<span class="val-n">${c.evidence.current.method==="sales"?" n="+c.evidence.current.n
  :c.evidence.current.method==="guide"?" guide"
  :c.evidence.current.method==="estimate"?" est":" no data"}</span>`:""}</span></div>
+   ${rActiveIds.has(c.id)?`<div class="flag pricing"><span class="pulse-dot"></span>Pricing…</div>`
+    :rq.indexOf(c.id)>-1?`<div class="flag queued">Queued to price</div>`:""}
    ${c.verified?`<div class="flag ok">Checked by you</div>`:""}
    ${c.review?`<div class="flag warn">Check this one</div>`:""}
    ${g&&g.verdict==="grade"?`<div class="flag">Grade this — +${money(g.net)} expected</div>`:""}
