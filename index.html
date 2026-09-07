@@ -3,8 +3,52 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>The Slab Club</title>
-<meta name="theme-color" content="#15171B">
+<title>The Slab Club — scan, price and track a card collection</title>
+<meta name="theme-color" content="#07090C">
+<meta name="description" content="The Slab Club is a private collection tracker. Photograph a card, sealed box or Funko Pop and it reads what the item is, looks up what it sells for, and tells you whether grading is worth the fee. Includes a Dungeons and Dragons character and campaign log.">
+<link rel="canonical" href="https://theslab.club/">
+<meta name="author" content="raf1983">
+<meta name="robots" content="index, follow">
+
+<!-- how the link looks when it is shared -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="The Slab Club">
+<meta property="og:url" content="https://theslab.club/">
+<meta property="og:title" content="The Slab Club">
+<meta property="og:description" content="Photograph a collectible. Get everything else — what it is, what it sells for, and whether grading pays.">
+<meta property="og:image" content="https://theslab.club/splash-landscape-1920x1080.png">
+<meta property="og:image:width" content="1920">
+<meta property="og:image:height" content="1080">
+<meta property="og:image:alt" content="The Slab Club">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The Slab Club">
+<meta name="twitter:description" content="Scan a card. Get what it is, what it sells for, and whether grading pays.">
+<meta name="twitter:image" content="https://theslab.club/splash-landscape-1920x1080.png">
+
+<!-- a plain description for anything reading the page rather than looking at it -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "The Slab Club",
+  "url": "https://theslab.club/",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "Any (web browser)",
+  "browserRequirements": "Requires JavaScript. Works offline for browsing a cached collection.",
+  "description": "A private collection tracker for trading cards, sealed product and collectible figures. Photographs are read to identify the item, prices are looked up from published guides and completed sales, and a grading calculator weighs what a graded copy would be worth against the cost of grading. Also holds character sheets and a session log for a Dungeons and Dragons campaign.",
+  "featureList": [
+    "Identify a card, sealed box or figure from a photograph",
+    "Look up current value from published guides and completed sales",
+    "Show the evidence behind every price, and say when a figure is an estimate",
+    "Work out whether grading a card is worth the fee",
+    "Track a collection by category, format and grade",
+    "Dungeons and Dragons character sheets, dice and campaign log"
+  ],
+  "isAccessibleForFree": false,
+  "accessMode": "visual",
+  "author": { "@type": "Person", "name": "raf1983" }
+}
+</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="The Slab">
@@ -14,9 +58,6 @@
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="48x48" href="favicon-48x48.png">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
-<meta name="apple-mobile-web-app-title" content="The Slab">
 <link rel="apple-touch-startup-image" href="splash-portrait-1170x2532.png"
       media="(orientation: portrait)">
 <link rel="apple-touch-startup-image" href="splash-landscape-1920x1080.png"
@@ -606,7 +647,65 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
   box-shadow:0 4px 20px rgba(0,0,0,.3);max-width:90vw;text-align:center}
 
 /* gate screens */
-.gate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px}
+/* ---- the way in -----------------------------------------------------
+   Dark, with the two glows from the logo bleeding into the background and
+   a faint grid behind. The card itself stays quiet so the form is easy. */
+.gate{position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;
+ padding:40px 16px 48px;background:#07090C;overflow:hidden;isolation:isolate}
+.gate-glow{position:absolute;inset:-20% -10%;z-index:0;pointer-events:none;
+ background:
+  radial-gradient(48% 40% at 18% 22%, rgba(38,132,255,.30), transparent 70%),
+  radial-gradient(46% 38% at 84% 30%, rgba(122,222,52,.24), transparent 70%),
+  radial-gradient(70% 55% at 50% 108%, rgba(38,132,255,.14), transparent 72%);
+ filter:blur(6px)}
+.gate-grid{position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.16;
+ background-image:
+  linear-gradient(rgba(150,190,230,.16) 1px, transparent 1px),
+  linear-gradient(90deg, rgba(150,190,230,.16) 1px, transparent 1px);
+ background-size:44px 44px;
+ mask-image:radial-gradient(72% 62% at 50% 42%, #000 30%, transparent 78%);
+ -webkit-mask-image:radial-gradient(72% 62% at 50% 42%, #000 30%, transparent 78%)}
+.gwrap{position:relative;z-index:1;width:100%;max-width:430px;background:none;border:0;
+ padding:0;box-shadow:none;text-align:center}
+.gate-logo{width:min(74vw,300px);height:auto;display:block;margin:0 auto 10px;
+ animation:gateIn .8s cubic-bezier(.2,.7,.3,1) both}
+@keyframes gateIn{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+.gate-tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;
+ color:#7E93AB;margin-bottom:22px}
+.gcard{text-align:left;background:rgba(18,22,29,.82);border:1px solid rgba(140,175,210,.18);
+ border-radius:12px;padding:24px 20px 20px;backdrop-filter:blur(14px);
+ box-shadow:0 1px 0 rgba(255,255,255,.06) inset, 0 24px 50px -24px rgba(0,0,0,.9)}
+.gate .gt{font-family:var(--disp);font-weight:500;font-size:24px;color:#EEF3F8;
+ margin:0 0 6px;letter-spacing:.01em}
+.gate .gp{font-size:12.5px;line-height:1.6;color:#8A9BAE;margin:0 0 16px}
+.gate .gp.small{margin:14px 0 0;font-size:11.5px;text-align:center}
+.gate .gp a{color:#63A6F5;text-decoration:none;border-bottom:1px solid rgba(99,166,245,.35)}
+.gate .fld-l{color:#7E93AB}
+.gate .fld-i{background:rgba(9,12,17,.85);border:1px solid rgba(140,175,210,.22);
+ color:#EEF3F8;border-radius:7px}
+.gate .fld-i::placeholder{color:#55657A}
+.gate .fld-i:focus{outline:none;border-color:#3E8EF0;
+ box-shadow:0 0 0 3px rgba(62,142,240,.18)}
+.gate .btn{border-radius:8px}
+.gate .btn.glow{background:linear-gradient(180deg,#2C7DE8,#1D5FC0);border:0;color:#fff;
+ box-shadow:0 0 0 1px rgba(120,180,255,.35), 0 10px 26px -10px rgba(40,120,230,.85)}
+.gate .btn.glow:active{transform:translateY(1px)}
+.gate .btn.ghost{background:transparent;border:1px solid rgba(140,175,210,.24);color:#B6C6D6}
+.gate .gmsg{margin-top:12px;background:rgba(168,124,26,.14);border-left:3px solid #C79A31;
+ color:#E3CD97;font-size:12.5px;line-height:1.55;padding:10px 12px;border-radius:0 6px 6px 0}
+.gate-feats{list-style:none;margin:22px 0 0;padding:0;text-align:left;
+ display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
+.gate-feats li{min-width:0}
+.gate-feats b{display:block;font-family:var(--disp);font-size:12px;letter-spacing:.05em;
+ color:#D3DEE9;margin-bottom:2px}
+.gate-feats span{display:block;font-size:11px;line-height:1.5;color:#6E8298}
+.gate-foot{margin:26px 0 0;font-family:var(--mono);font-size:10px;letter-spacing:.18em;
+ color:#4C5C6E;text-transform:uppercase}
+@media (max-width:420px){
+ .gate-feats{grid-template-columns:1fr;gap:10px}
+ .gate-logo{width:min(78vw,250px)}
+}
+@media (prefers-reduced-motion:reduce){.gate-logo{animation:none}}
 .gwrap{width:100%;max-width:440px;background:var(--label);border:1px solid var(--rule);
   border-radius:3px;padding:26px 22px;box-shadow:var(--shadow)}
 .gt{font-family:var(--disp);font-weight:500;font-size:26px;margin:0 0 8px;letter-spacing:.01em}
@@ -705,7 +804,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="89";
+const VERSION="90";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -2013,23 +2112,36 @@ function campaignPanel(){
 function viewSignIn(){
  const mk=window._mode==="new";
  // The database button is only reachable with ?setup=1 in the address bar.
- // Nobody using the app needs it, and tapping it by accident breaks their app.
  const showCfg=/[?&]setup=1/.test(location.search);
- return `<div class="gate"><div class="gwrap">
-  <div class="wm" style="color:var(--ink);margin-bottom:6px"><span class="wm1">THE</span><span class="wm2">SLAB</span></div>
-  <h1 class="gt">${mk?"Create your account":"Sign in"}</h1>
-  <p class="gp">${mk
-   ?"Accounts are usually set up for you. If you were not given one, ask Raf."
-   :"Same account on your phone and your laptop means the same collection."}</p>
-  ${fld("Email","authEmail",window._email||"","you@example.com","g","email")}
-  ${fld("Password","authPass","",mk?"at least 8 characters":"","g","password")}
-  <button class="btn wide" data-act="${mk?"signup":"signin"}" ${authBusy?"disabled":""}>
-   ${authBusy?"Working…":(mk?"Create account":"Sign in")}</button>
-  ${authMsg?`<div class="gmsg">${esc(authMsg)}</div>`:""}
-  <button class="btn ghost wide" data-act="togglemode">${mk?"I already have an account":"I need an account"}</button>
-  <p class="gp small">Forgotten your password? <a href="#" data-act="magic">Email me a sign-in link</a>.</p>
-  ${showCfg?`<button class="btn ghost wide" data-act="editcfg">Change database settings</button>`:""}
- </div></div>`;
+ return `<div class="gate">
+  <div class="gate-glow" aria-hidden="true"></div>
+  <div class="gate-grid" aria-hidden="true"></div>
+  <div class="gwrap">
+   <img class="gate-logo" src="logo-full.webp" alt="The Slab Club" width="760" height="743">
+   <div class="gate-tag">Scan it. Price it. Keep the record.</div>
+   <div class="gcard">
+    <h1 class="gt">${mk?"Create your account":"Sign in"}</h1>
+    <p class="gp">${mk
+     ?"Accounts are usually set up for you. If you were not given one, ask Raf."
+     :"One account, on every device you catalogue from."}</p>
+    ${fld("Email","authEmail",window._email||"","you@example.com","g","email")}
+    ${fld("Password","authPass","",mk?"at least 8 characters":"","g","password")}
+    <button class="btn wide glow" data-act="${mk?"signup":"signin"}" ${authBusy?"disabled":""}>
+     ${authBusy?"Working…":(mk?"Create account":"Sign in")}</button>
+    ${authMsg?`<div class="gmsg">${esc(authMsg)}</div>`:""}
+    <button class="btn ghost wide" data-act="togglemode">${
+      mk?"I already have an account":"I need an account"}</button>
+    <p class="gp small">Forgotten your password? <a href="#" data-act="magic">Email me a sign-in link</a>.</p>
+    ${showCfg?`<button class="btn ghost wide" data-act="editcfg">Change database settings</button>`:""}
+   </div>
+   <ul class="gate-feats">
+    <li><b>Photograph it</b><span>Cards, sealed boxes, Funko Pops — read and priced.</span></li>
+    <li><b>Know what it is worth</b><span>Real sales where they exist, honestly labelled where they do not.</span></li>
+    <li><b>Grade the right ones</b><span>What a slab would add, against what it costs.</span></li>
+    <li><b>Roll the dice</b><span>Character sheets and a campaign log for the table.</span></li>
+   </ul>
+   <p class="gate-foot">theslab.club</p>
+  </div></div>`;
 }
 
 /* ============ render ============ */
