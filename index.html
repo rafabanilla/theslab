@@ -812,7 +812,7 @@ body.gated{background:#07090C;padding-bottom:0}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="103";
+const VERSION="104";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -1241,13 +1241,14 @@ function historyChart(id){
  ).join("");
  const firstDate=esc(String(pts[0].checked_at||"").slice(0,10));
  const lastDate=esc(String(pts[pts.length-1].checked_at||"").slice(0,10));
+ const firstVal=n(pts[0].v_raw), lastVal=n(pts[pts.length-1].v_raw);
  return `<div class="hist">
   <div class="hist-hd">Price history<span class="ev-when">${pts.length} check${pts.length===1?"":"s"}</span></div>
   <svg viewBox="0 0 ${W} ${H}" class="hist-svg" preserveAspectRatio="none">
    <path d="${path}" fill="none" stroke="var(--ink,#1a1a1a)" stroke-width="1.5"/>
    ${dots}
   </svg>
-  <div class="hist-axis"><span>${firstDate} · ${money(lo)}</span><span>${lastDate} · ${money(hi)}</span></div>
+  <div class="hist-axis"><span>${firstDate} · ${money(firstVal)}</span><span>${lastDate} · ${money(lastVal)}</span></div>
  </div>`;
 }
 function findSkuDupes(){
