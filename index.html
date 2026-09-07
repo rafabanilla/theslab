@@ -330,9 +330,12 @@ textarea.fld-i{resize:vertical}
 .ev-crack.warn{background:#FDF0D9;border-left-color:var(--gold);color:#5C4409}
 .ev-guide{color:var(--gold);font-family:var(--body);font-size:11px}
 .ev-est{color:var(--mute);font-family:var(--body);font-size:11px;font-style:italic}
+.ev-guess{color:#B23B3B;font-family:var(--body);font-size:11px;font-style:italic}
 .ev-soft{opacity:.72}
 .ev-est-box{background:#EDF1F5;border-left:3px solid var(--gold);padding:9px 10px;margin-top:9px;
  font-size:11.5px;line-height:1.55;color:#4A5058}
+.ev-guess-box{background:#FBEAEA;border-left:3px solid #B23B3B;padding:9px 10px;margin-top:9px;
+ font-size:11.5px;line-height:1.55;color:#5C2323}
 .ev-note{background:#EDF1F5;border-left:3px solid var(--mute);padding:9px 10px;margin-top:9px;
  font-size:11.5px;line-height:1.5;color:var(--mute)}
 .ev-warn{background:#FDF0D9;border-left:3px solid var(--gold);padding:9px 10px;margin-top:9px;
@@ -803,7 +806,7 @@ body.gated{background:#07090C;padding-bottom:0}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="97";
+const VERSION="98";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -2824,9 +2827,11 @@ function bucketRow(label,b){
   ? (b.n===1?"1 sale":b.n+" sales")
   : b.method==="guide"
    ? `<span class="ev-guide">${esc((b.guides&&b.guides[0]&&b.guides[0].source)||"market guide")}</span>`
-   : `<span class="ev-est">estimate</span>`;
+   : b.method==="guestimate"
+    ? `<span class="ev-guess">rough guess</span>`
+    : `<span class="ev-est">estimate</span>`;
  return`<tr><td>${label}</td>
-  <td class="ev-med${b.method==="estimate"?" ev-soft":""}">${money(b.median)}</td>
+  <td class="ev-med${b.method==="estimate"||b.method==="guestimate"?" ev-soft":""}">${money(b.median)}</td>
   <td>${basis}</td>
   <td>${b.low===b.high?"":money(b.low)+"–"+money(b.high)}</td></tr>`;
 }
@@ -2903,6 +2908,9 @@ function evidencePanel(c){
      <span class="ev-b">${lbl[s.b]||s.b}</span>
      <span class="ev-d">${esc(s.date||"undated")}</span>
      <span class="ev-s">${esc(s.source||"")}</span></li>`).join("")}</ul>`
+   :(ev.current&&ev.current.method==="guestimate")
+    ?`<div class="ev-guess-box"><b>Rough guess — nothing found anywhere.</b> No sales, guide, or marketplace page could be located for this card at all, so this figure comes from category and player knowledge only, not from anything found this run. ${esc(ev.current.basis||"")}${
+      ev.current.low!==ev.current.high?` Wide range ${money(ev.current.low)}–${money(ev.current.high)}.`:""} Verify before relying on this.</div>`
    :(ev.current&&ev.current.method==="estimate")
     ?`<div class="ev-est-box"><b>Estimated, not observed.</b> ${esc(ev.current.basis||"No sales or guide value was found, so this is reasoned from comparable cards.")}${
       ev.current.low!==ev.current.high?` Likely range ${money(ev.current.low)}–${money(ev.current.high)}.`:""}</div>`
