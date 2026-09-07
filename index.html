@@ -650,7 +650,8 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ---- the way in -----------------------------------------------------
    Dark, with the two glows from the logo bleeding into the background and
    a faint grid behind. The card itself stays quiet so the form is easy. */
-.gate{position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;
+body.gated{background:#07090C;padding-bottom:0}
+.gate{position:relative;min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;
  padding:40px 16px 48px;background:#07090C;overflow:hidden;isolation:isolate}
 .gate-glow{position:absolute;inset:-20% -10%;z-index:0;pointer-events:none;
  background:
@@ -802,7 +803,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="91";
+const VERSION="92";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -2144,6 +2145,10 @@ function viewSignIn(){
 
 /* ============ render ============ */
 function render(){
+ const gate=!cfg||!sb||!user;
+ // the body keeps a light background and 96px of padding for the tab bar;
+ // neither belongs behind the sign-in screen
+ document.body.classList[gate?"add":"remove"]("gated");
  if(!cfg||!sb){document.getElementById("app").innerHTML=viewConfig();return;}
  if(!user){document.getElementById("app").innerHTML=viewSignIn();return;}
  const st=stats();
