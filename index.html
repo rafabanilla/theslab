@@ -665,8 +665,8 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
  background-size:44px 44px;
  mask-image:radial-gradient(72% 62% at 50% 42%, #000 30%, transparent 78%);
  -webkit-mask-image:radial-gradient(72% 62% at 50% 42%, #000 30%, transparent 78%)}
-.gwrap{position:relative;z-index:1;width:100%;max-width:430px;background:none;border:0;
- padding:0;box-shadow:none;text-align:center}
+.gate .gwrap{position:relative;z-index:1;width:100%;max-width:430px;
+ background:none;border:0;padding:0;box-shadow:none;text-align:center}
 .gate-logo{width:min(74vw,300px);height:auto;display:block;margin:0 auto 10px;
  animation:gateIn .8s cubic-bezier(.2,.7,.3,1) both}
 @keyframes gateIn{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
@@ -693,7 +693,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 .gate .btn.ghost{background:transparent;border:1px solid rgba(140,175,210,.24);color:#B6C6D6}
 .gate .gmsg{margin-top:12px;background:rgba(168,124,26,.14);border-left:3px solid #C79A31;
  color:#E3CD97;font-size:12.5px;line-height:1.55;padding:10px 12px;border-radius:0 6px 6px 0}
-.gate-feats{list-style:none;margin:22px 0 0;padding:0;text-align:left;
+.gate-feats{list-style:none;margin:26px 0 0;padding:0 4px;text-align:left;
  display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
 .gate-feats li{min-width:0}
 .gate-feats b{display:block;font-family:var(--disp);font-size:12px;letter-spacing:.05em;
@@ -706,8 +706,6 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
  .gate-logo{width:min(78vw,250px)}
 }
 @media (prefers-reduced-motion:reduce){.gate-logo{animation:none}}
-.gwrap{width:100%;max-width:440px;background:var(--label);border:1px solid var(--rule);
-  border-radius:3px;padding:26px 22px;box-shadow:var(--shadow)}
 .gt{font-family:var(--disp);font-weight:500;font-size:26px;margin:0 0 8px;letter-spacing:.01em}
 .gp{font-size:13px;line-height:1.6;color:var(--mute);margin:0 0 16px}
 .gp.small{font-size:11.5px;margin-top:14px;margin-bottom:0}
@@ -804,7 +802,7 @@ body.zoomed .hdr,body.zoomed .tabs{position:static}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="90";
+const VERSION="91";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
