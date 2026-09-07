@@ -171,7 +171,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .count-v{font-size:15px;font-weight:600;color:var(--ink);letter-spacing:-.01em}
 
 /* signature: the slab row */
-.slab{display:flex;background:var(--label);border:1px solid var(--rule);border-radius:2px;
+.slab{position:relative;display:flex;background:var(--label);border:1px solid var(--rule);border-radius:2px;
   margin-bottom:8px;overflow:hidden;box-shadow:var(--shadow);cursor:pointer}
 .slab:active{transform:translateY(1px)}
 .cg{width:52px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -733,6 +733,56 @@ body.gated{background:#07090C;padding-bottom:0}
   margin-left:8px;letter-spacing:.03em}
 .flag.stale{color:#5C4409;background:#FDF0D9;font-weight:500}
 
+/* multi-select bar — its own dark-ink treatment, distinct from the amber
+   pricing banner so the two are never mistaken for each other */
+.selbar{position:sticky;top:140px;z-index:18;display:flex;align-items:center;gap:10px;
+  background:var(--ink);color:#fff;padding:8px 14px;font-size:12px;font-family:var(--mono);
+  flex-wrap:wrap}
+.selcount{font-weight:600}
+.selspace{flex:1}
+.selbtn{color:#fff;text-decoration:underline;font-size:11px;font-family:var(--mono);
+  opacity:.9}
+.selbtn:disabled{opacity:.35;text-decoration:none}
+.selbtn.danger{color:#F0A0A8}
+.sel-enter{background:none;border:1px solid var(--rule);color:var(--mute)}
+
+/* selection checkbox drawn on each card while select mode is on */
+.slab.selectable{padding-left:38px}
+.selbox{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:20px;height:20px;
+  border:1.5px solid var(--rule);border-radius:50%;background:#fff;z-index:1}
+.selbox.on{background:var(--ink);border-color:var(--ink)}
+.selbox.on::after{content:"";position:absolute;left:6px;top:2px;width:5px;height:10px;
+  border:solid #fff;border-width:0 2px 2px 0;transform:rotate(40deg)}
+
+/* long-press context menu and its delete confirm — a small centred card
+   rather than the bottom sheet used for editing an item */
+.pmenu-wrap{align-items:center}
+.pmenu{background:#fff;border-radius:6px;width:min(320px,86vw);overflow:hidden;
+  box-shadow:0 12px 32px rgba(0,0,0,.25)}
+.pmenu-t{padding:14px 16px 10px;font-family:var(--disp);font-size:14px;border-bottom:1px solid var(--rule)}
+.pmenu-t span{display:block;font-family:var(--mono);font-size:11px;color:var(--mute);
+  font-weight:400;margin-top:2px}
+.pmenu-i{display:block;width:100%;text-align:left;padding:13px 16px;font-size:14px;
+  border-bottom:1px solid var(--rule);background:#fff;color:var(--ink)}
+.pmenu-i:last-child{border-bottom:none}
+.pmenu-i.danger{color:var(--red)}
+.pmenu-i.ghost{color:var(--mute)}
+.pmenu-wrap .confbox{width:min(320px,86vw);margin:0}
+
+/* full-screen photo zoom — sits above the item sheet (z-index 50) */
+.zoom-wrap{position:fixed;inset:0;background:rgba(10,11,13,.94);z-index:80;
+  display:flex;align-items:center;justify-content:center;padding:24px}
+.zoom-img{max-width:100%;max-height:100%;object-fit:contain;border-radius:2px}
+.zoom-x{position:absolute;top:calc(16px + env(safe-area-inset-top));right:16px;
+  width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.15);
+  color:#fff;font-size:16px;display:flex;align-items:center;justify-content:center}
+
+/* small retake affordance once a shot photo exists, replacing what used
+   to be "tap the photo to retake it" now that tapping it zooms instead */
+.shot-retake{position:absolute;bottom:6px;right:6px;width:28px;height:28px;
+  border-radius:50%;background:rgba(21,23,27,.75);color:#fff;font-size:14px;
+  display:none;align-items:center;justify-content:center;z-index:1}
+
 /* scan view */
 .hero{position:relative;overflow:hidden;background:var(--ink);color:#fff;
  padding:26px 20px 24px;border-radius:3px;margin-bottom:6px}
@@ -815,7 +865,7 @@ body.gated{background:#07090C;padding-bottom:0}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="107";
+const VERSION="108";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","CCG","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -896,6 +946,32 @@ const SEED=[
 /* ============ state ============ */
 let S={cards:[],settings:{...DEF_SET}};
 let tab="scan", editing=null, confirmDel=false, dupReview=false;
+// long-press context menu, multi-select, and the photo zoom overlay
+let pressMenu=null, pendingDeleteId=null, zoomPhoto=null;
+let selectMode=false, selectedIds=new Set();
+let pressTimer=null, pressStart=null, pressMoved=false, justLongPressed=false;
+document.addEventListener("pointerdown",e=>{
+ const row=e.target.closest&&e.target.closest(".slab[data-open]");
+ if(!row||editing||selectMode)return;
+ pressMoved=false;
+ pressStart={x:e.clientX,y:e.clientY};
+ clearTimeout(pressTimer);
+ pressTimer=setTimeout(()=>{
+  if(pressMoved)return;
+  pressMenu=row.getAttribute("data-open");
+  justLongPressed=true;
+  if(navigator.vibrate)navigator.vibrate(12);
+  render();
+ },500);
+});
+document.addEventListener("pointermove",e=>{
+ if(!pressStart)return;
+ if(Math.abs(e.clientX-pressStart.x)>8||Math.abs(e.clientY-pressStart.y)>8){
+  pressMoved=true;clearTimeout(pressTimer);
+ }
+});
+document.addEventListener("pointerup",()=>{clearTimeout(pressTimer);pressStart=null;});
+document.addEventListener("pointercancel",()=>{clearTimeout(pressTimer);pressStart=null;});
 let heroes=[], sessions=[], heroEdit=null, sessEdit=null, dndLoaded=false, heroView=null;
 let secOpen={Collection:true};
 let queue=[], scanning=false, storeInfo=null;
@@ -1308,6 +1384,18 @@ async function dropCard(id){
  try{await rest("/rest/v1/cards?id=eq."+encodeURIComponent(id),
    {method:"DELETE",headers:restHeaders({"Prefer":"return=minimal"})},15000,"delete");
  }catch(_){setSync("delete failed");}
+}
+// Shared by the sheet's own delete button, the long-press menu, and bulk
+// delete from multi-select — one place that removes both photos, drops the
+// row locally, and pushes the delete to the server. `silent` skips the
+// per-item render/toast for bulk use, where the caller renders and toasts
+// once for the whole batch instead of once per card.
+async function deleteCardById(id,silent){
+ const label=(S.cards.find(c=>c.id===id)||{}).sku||"";
+ await removePhoto(id,"F");await removePhoto(id,"B");
+ S.cards=S.cards.filter(c=>c.id!==id);
+ await dropCard(id);
+ if(!silent){render();toast(label?("Deleted "+label):"Deleted");}
 }
 async function pushSettings(){
  save();
@@ -1748,6 +1836,52 @@ function repriceBanner(){
  return`<div class="rbanner"><span class="pulse">Refreshing prices…</span>
   <span class="rcount">${rq.length+rActive} left</span>
   <button class="rstop" data-act="stopreprice">stop</button></div>`;
+}
+function selectBar(){
+ if(!selectMode)return"";
+ const cnt=selectedIds.size;
+ return`<div class="selbar">
+  <span class="selcount">${cnt} selected</span>
+  <button class="selbtn" data-act="selectall">All</button>
+  <button class="selbtn" data-act="selectnone">None</button>
+  <span class="selspace"></span>
+  <button class="selbtn" data-act="bulkrefresh"${cnt?"":" disabled"}>Refresh</button>
+  <button class="selbtn danger" data-act="bulkdelete"${cnt?"":" disabled"}>Delete</button>
+  <button class="selbtn" data-act="selectdone">Done</button>
+ </div>`;
+}
+function pressMenuView(){
+ if(!pressMenu)return"";
+ const c=S.cards.find(x=>x.id===pressMenu);
+ if(!c){pressMenu=null;return"";}
+ return`<div class="sheet-wrap pmenu-wrap">
+  <div class="pmenu">
+   <div class="pmenu-t">${esc(c.sku||"Item")}<span>${esc(c.subject||c.set||"")}</span></div>
+   <button class="pmenu-i" data-act="pmenu-open">Open</button>
+   <button class="pmenu-i" data-act="pmenu-refresh">Refresh price</button>
+   <button class="pmenu-i" data-act="pmenu-select">Select multiple…</button>
+   <button class="pmenu-i danger" data-act="pmenu-delete">Delete</button>
+   <button class="pmenu-i ghost" data-act="pmenu-cancel">Cancel</button>
+  </div>
+ </div>`;
+}
+function pendingDeleteView(){
+ if(!pendingDeleteId)return"";
+ const c=S.cards.find(x=>x.id===pendingDeleteId);
+ return`<div class="sheet-wrap pmenu-wrap">
+  <div class="confbox">
+   Delete ${esc((c&&c.sku)||"this item")} for good? This cannot be undone.
+   <div class="confrow">
+    <button class="btn ghost" data-act="canceldelid">Keep</button>
+    <button class="btn danger" data-act="confirmdelid">Delete</button></div></div>
+ </div>`;
+}
+function zoomView(){
+ if(!zoomPhoto)return"";
+ return`<div class="zoom-wrap">
+  <img class="zoom-img" src="${esc(zoomPhoto)}" alt="">
+  <button class="zoom-x" data-act="zoomclose" aria-label="Close">✕</button>
+ </div>`;
 }
 
 
@@ -2366,12 +2500,13 @@ function render(){
    ${S.settings.avatar?`<img class="hdr-av" src="${esc(S.settings.avatar)}" alt="">`:""}
   </div></div>
   <div class="ticker">
-   ${tick("items",st.owned.length)}${tick("value",money(st.value))}
-   ${tick("cost",money(st.cost))}${tick("grade now",st.cands.length,st.cands.length>0,"grading")}
+   ${tick("items",st.owned.length,false,"collection")}${tick("value",money(st.value),false,"money")}
+   ${tick("cost",money(st.cost),false,"money")}${tick("grade now",st.cands.length,st.cands.length>0,"grading")}
   </div></header>
   <nav class="tabs">${[["scan","Scan"],["collection","Items"],["grading","Grading"],["money","Money"],["dnd","D&D"],["setup","Setup"]]
    .map(([k,l])=>`<button class="tab${tab===k?" on":""}" data-tab="${k}">${l}</button>`).join("")}</nav>`;
   h+=repriceBanner();
+  h+=selectBar();
   h+=tab==="scan"?viewScan():tab==="collection"?viewCollection():tab==="grading"?viewGrading():tab==="money"?viewMoney(st):tab==="dnd"?viewDnd():viewSetup();
   h+=(()=>{const q=quoteOfTheDay();return `<footer class="foot">
   <div class="foot-mid">
@@ -2387,6 +2522,14 @@ function render(){
  if(editing)h+=viewSheet();
  if(dupReview)h+=viewDupes();
  if(heroView)h+=heroSheet(heroes.find(x=>x.id===heroView));
+ // These three float on top of whatever else rendered — a long-press menu
+ // and its delete confirm are meant to sit over a dimmed (still visible)
+ // list, and the photo zoom sits over the open item sheet — so unlike
+ // editing/dupReview/heroView above, none of them replace the content
+ // under them and none of them need to be part of the `covered` check.
+ h+=pressMenuView();
+ h+=pendingDeleteView();
+ h+=zoomView();
  document.getElementById("app").innerHTML=h;
  positionTabs();
  if(editing)hydratePhotos();
@@ -2511,6 +2654,7 @@ function viewCollection(){
    ${pill("flag","Show",F.flags.length)}
    ${pill("val","Value",F.minVal?1:0)}
    ${pill("sort","Sort",0)}
+   ${selectMode?"":`<button class="fpill sel-enter" data-act="selectstart">Select</button>`}
   </div>
   ${F.open==="cat"?`<div class="fpanel">${catKeys.map(k=>
     box("cat",k,esc(k),F.cats.indexOf(k)>-1,catCounts[k])).join("")}</div>`:""}
@@ -2538,7 +2682,9 @@ function viewCollection(){
 function slabRow(c){
  const g=gradeCall(c), f=photoURL(c,"F");
  const cls=c.graded?"cg "+(n(c.grade)>=10?"g10":n(c.grade)>=9?"g9":"g8"):"cg raw";
- return`<article class="slab" data-open="${c.id}">
+ const checked=selectMode&&selectedIds.has(c.id);
+ return`<article class="slab${selectMode?" selectable":""}${checked?" checked":""}" data-open="${c.id}">
+  ${selectMode?`<div class="selbox${checked?" on":""}" aria-hidden="true"></div>`:""}
   <div class="${cls}">${c.graded?`<span class="cg-co">${esc(c.grader)}</span><span class="cg-n">${esc(c.grade)}</span>`:`<span class="cg-raw">RAW</span>`}</div>
   <div class="sb">
    <div class="sl"><span class="sl-yr">${esc(c.year||"—")}</span><span class="sl-set">${esc(c.set||"Unset")}</span></div>
@@ -2950,8 +3096,8 @@ function viewSheet(){
   <span class="sheet-t">${esc(c.sku||"New item")}</span>
   <button class="x go" data-act="save">Save</button></div><div class="sheet-body">
   <div class="shots">
-   <div class="shot" data-pic="F"><span class="shot-l">Front</span><img id="imgF" style="display:none"><span class="shot-x" data-clear="F" style="display:none">clear</span></div>
-   <div class="shot" data-pic="B"><span class="shot-l">Back</span><img id="imgB" style="display:none"><span class="shot-x" data-clear="B" style="display:none">clear</span></div>
+   <div class="shot" data-pic="F"><span class="shot-l">Front</span><img id="imgF" style="display:none" data-zoom="F"><button class="shot-retake" data-pic="F" style="display:none" aria-label="Retake front photo">↻</button><span class="shot-x" data-clear="F" style="display:none">clear</span></div>
+   <div class="shot" data-pic="B"><span class="shot-l">Back</span><img id="imgB" style="display:none" data-zoom="B"><button class="shot-retake" data-pic="B" style="display:none" aria-label="Retake back photo">↻</button><span class="shot-x" data-clear="B" style="display:none">clear</span></div>
   </div>
   ${c.photoF&&c.photoB?`<button class="btn ghost wide" data-act="rescan" style="margin-top:6px">Re-check number & set from both photos</button>`:""}
   ${fld("SKU","sku",c.sku,"MJ-018")}
@@ -3141,7 +3287,8 @@ async function hydratePhotos(){
   const d=url;
   if(d){el.src=d;el.style.display="block";
    const x=document.querySelector(`[data-clear="${w}"]`);if(x&&!url)x.style.display="block";
-   const lab=el.parentElement.querySelector(".shot-l");if(lab)lab.style.display="none";}
+   const lab=el.parentElement.querySelector(".shot-l");if(lab)lab.style.display="none";
+   const retake=el.parentElement.querySelector(".shot-retake");if(retake)retake.style.display="flex";}
  }
 }
 
@@ -3202,6 +3349,27 @@ function bumpSku(sku){const m=String(sku).match(/^(.*?)(\d+)$/);
 
 /* ============ events ============ */
 document.addEventListener("click",async e=>{
+ // a long press already handled this tap via pointerdown's timer — the
+ // click that follows finger-lift on a touch device would otherwise open
+ // the item right after (or underneath) the menu it just opened
+ if(justLongPressed){justLongPressed=false;return;}
+
+ // tapping the dimmed backdrop behind the long-press menu, the delete
+ // confirm, or the photo zoom closes whichever is open
+ if(pressMenu&&e.target&&e.target.classList&&e.target.classList.contains("sheet-wrap")){
+  pressMenu=null;render();return;}
+ if(pendingDeleteId&&e.target&&e.target.classList&&e.target.classList.contains("sheet-wrap")){
+  pendingDeleteId=null;render();return;}
+ if(zoomPhoto&&e.target&&e.target.classList&&e.target.classList.contains("zoom-wrap")){
+  zoomPhoto=null;render();return;}
+
+ // tapping a photo inside an open item zooms it full-screen instead of
+ // opening the retake camera — the small retake button, not the photo
+ // itself, is what replaces it now
+ const zm=e.target.closest&&e.target.closest("[data-zoom]");
+ if(zm){const url=editing&&photoURL(editing,zm.getAttribute("data-zoom"));
+  if(url){zoomPhoto=url;render();}return;}
+
  // remember which Setup section the user just opened or closed, so the next
  // render puts it back the way they left it
  const sm=e.target.closest&&e.target.closest("summary[data-sec]");
@@ -3233,6 +3401,11 @@ document.addEventListener("click",async e=>{
  const t=e.target.closest("[data-tab],[data-act],[data-open],[data-panel],[data-pick],[data-graded],[data-pic],[data-clear],[data-toggletrait],[data-verif],[data-key],[data-die],[data-adv],[data-save],[data-skill],[data-d],[data-slot],[data-dm],[data-heroview]");
  if(!t)return;
  const d=t.dataset;
+ // in select mode, tapping a card toggles it instead of opening it
+ if(d.open&&selectMode){
+  if(selectedIds.has(d.open))selectedIds.delete(d.open);else selectedIds.add(d.open);
+  render();return;
+ }
  if(d.clear!==undefined&&d.clear){e.stopPropagation();
   await removePhoto(editing.id,d.clear);
   editing[d.clear==="F"?"photoF":"photoB"]="";commit();render();return;}
@@ -3331,10 +3504,35 @@ document.addEventListener("click",async e=>{
     if(b&&b.scrollIntoView)b.scrollIntoView({block:"center",behavior:"smooth"});},60);
    break;
   case"nodel":confirmDel=false;render();break;
-  case"del":{const gone=editing.id, label=editing.sku||"";
-   await removePhoto(gone,"F");await removePhoto(gone,"B");
-   S.cards=S.cards.filter(c=>c.id!==gone);await dropCard(gone);
-   editing=null;render();toast(label?("Deleted "+label):"Deleted");break;}
+  case"del":{const gone=editing.id;
+   editing=null;render();
+   await deleteCardById(gone);break;}
+  case"pmenu-open":{const id=pressMenu;pressMenu=null;
+   editing=JSON.parse(JSON.stringify(S.cards.find(c=>c.id===id)));confirmDel=false;render();
+   loadHistory(id).then(render);break;}
+  case"pmenu-refresh":{const c=S.cards.find(x=>x.id===pressMenu);pressMenu=null;render();
+   if(c&&confirmSpend(1))queueReprice([c],true);break;}
+  case"pmenu-select":{if(pressMenu)selectedIds.add(pressMenu);
+   pressMenu=null;selectMode=true;render();break;}
+  case"pmenu-delete":pendingDeleteId=pressMenu;pressMenu=null;render();break;
+  case"pmenu-cancel":pressMenu=null;render();break;
+  case"canceldelid":pendingDeleteId=null;render();break;
+  case"confirmdelid":{const id=pendingDeleteId;pendingDeleteId=null;render();
+   if(id)await deleteCardById(id);break;}
+  case"zoomclose":zoomPhoto=null;render();break;
+  case"selectstart":selectMode=true;render();break;
+  case"selectdone":selectMode=false;selectedIds.clear();render();break;
+  case"selectall":(window._visible||[]).forEach(c=>selectedIds.add(c.id));render();break;
+  case"selectnone":selectedIds.clear();render();break;
+  case"bulkrefresh":{const set=S.cards.filter(c=>selectedIds.has(c.id));
+   selectMode=false;selectedIds.clear();render();
+   if(set.length&&confirmSpend(set.length))queueReprice(set,true);break;}
+  case"bulkdelete":{const ids=[...selectedIds];
+   if(!ids.length)break;
+   if(!window.confirm(`Delete ${ids.length} item${ids.length===1?"":"s"} for good? This cannot be undone.`))break;
+   selectMode=false;selectedIds.clear();render();
+   for(const id of ids)await deleteCardById(id,true);
+   toast(`Deleted ${ids.length}`);render();break;}
   case"savecfg":{
    const u=(document.querySelector('[data-g="cfgUrl"]')||{}).value||"";
    const k=(document.querySelector('[data-g="cfgKey"]')||{}).value||"";
