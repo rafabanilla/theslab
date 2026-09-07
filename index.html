@@ -803,7 +803,7 @@ body.gated{background:#07090C;padding-bottom:0}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="92";
+const VERSION="94";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -893,7 +893,7 @@ let photoCache={}, picTarget=null, deferredPrompt=null;
 function blank(sku){return{id:"c"+Date.now()+Math.random().toString(36).slice(2,6),sku:sku||"",cat:"NBA",
  year:"",set:"",subject:"",num:"",variant:"",serial:"",qty:1,graded:false,grader:"PSA",grade:"",cert:"",
  conf:"med",photoF:"",photoB:"",cost:"",acqDate:"",source:"",vRaw:"",v9:"",v10:"",pricedOn:"",
- status:"owned",listPrice:"",salePrice:"",saleDate:"",salePlatform:"",loc:"",notes:"",review:false,verified:false,traits:"",
+ status:"owned",listPrice:"",salePrice:"",saleDate:"",salePlatform:"",loc:"",notes:"",review:false,verified:false,pcUrl:"",traits:"",
  lastMove:0,evidence:null,addedAt:new Date().toISOString()};}
 
 function seed(){return SEED.map(r=>{const c=blank(r[0]);c.id=r[0];c.sku=r[0];c.year=r[1];c.set=r[2];
@@ -1002,7 +1002,7 @@ const MAP={sku:"sku",cat:"cat",year:"year",set:"set_name",subject:"subject",num:
  v9:"v9",v10:"v10",pricedOn:"priced_on",lastMove:"last_move",status:"status",
  listPrice:"list_price",salePrice:"sale_price",saleDate:"sale_date",salePlatform:"sale_platform",
  loc:"loc",notes:"notes",review:"review",photoF:"photo_f",photoB:"photo_b",
- evidence:"evidence",traits:"traits",verified:"verified"};
+ evidence:"evidence",traits:"traits",verified:"verified",pcUrl:"pc_url"};
 const NUMCOL=["qty","cost","v_raw","v9","v10","last_move","list_price","sale_price"];
 
 function toRow(c){
@@ -1458,7 +1458,9 @@ let rq=[], rDone=0, rFail=0, rThin=0;
 
 async function repriceAPI(c){
  const card={year:c.year,set:c.set,subject:c.subject,num:c.num,variant:c.variant,
-  serial:c.serial,cat:c.cat,graded:c.graded,grader:c.grader,grade:c.grade};
+  serial:c.serial,cat:c.cat,graded:c.graded,grader:c.grader,grade:c.grade,
+  // once known, this turns every future lookup into a cheap fixed-page read
+  pcUrl:c.pcUrl||""};
  return edgeCall("reprice",{card},140000);
 }
 function avgLookupCost(){
@@ -1515,6 +1517,8 @@ async function repriceOne(id){
   c.lastMove=before&&got("current")?Math.round(n(c.vRaw)-before):0;
   // The pricer's commentary belongs with the evidence, not in the user's notes.
   if(r.note&&ev)ev.note=String(r.note).slice(0,400);
+  // The first paid lookup discovers the guide page; from then on it is cheap.
+  if(r.guideUrl&&!c.pcUrl)c.pcUrl=String(r.guideUrl).slice(0,300);
   // Flag only what a person actually needs to look at. Medium confidence is
   // the normal case; flagging it put a warning on 71% of the collection and
   // made the flag worthless.
@@ -2871,7 +2875,8 @@ function evidencePanel(c){
   ${ev.note?`<p class="ev-note">${esc(ev.note)}</p>`:""}
   ${c.srcUrl&&c.pricePath==="direct"?`<a class="ev-src" href="${esc(c.srcUrl)}" target="_blank" rel="noopener">see the page this came from</a>`:""}
   ${c.pricePath?`<div class="ev-path ${c.pricePath==="direct"?"free":""}">${
-   c.pricePath==="direct"?(c.srcUrl&&/tcgplayer/.test(String(c.srcUrl))
+   c.pricePath==="soldcomps"?"real eBay sales — about a third of a cent"
+   :c.pricePath==="direct"?(c.srcUrl&&/tcgplayer/.test(String(c.srcUrl))
      ?"read from TCGPlayer via PokeWallet — free"
      :"read straight from the guide — free")
    :c.pricePath==="direct+model"?"guide page plus a model lookup"
