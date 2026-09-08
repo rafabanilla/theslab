@@ -911,7 +911,7 @@ body.gated{background:#07090C;padding-bottom:0}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="111";
+const VERSION="113";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","CCG","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -1716,6 +1716,9 @@ let rActiveIds=new Set();
 async function repriceAPI(c){
  const card={year:c.year,set:c.set,subject:c.subject,num:c.num,variant:c.variant,
   serial:c.serial,cat:c.cat,graded:c.graded,grader:c.grader,grade:c.grade,
+  // a real purchase the owner already made is evidence worth the pricer
+  // actually seeing, not just something that sits in the app unused
+  cost:c.cost,acqDate:c.acqDate,
   // once known, this turns every future lookup into a cheap fixed-page read
   pcUrl:c.pcUrl||""};
  return edgeCall("reprice",{card,ladderFrom:n(S.settings.ladderFrom)||25},140000);
@@ -1934,6 +1937,12 @@ function zoomView(){
 
 /* ============ setup + sign in ============ */
 let authBusy=false, authMsg="", requestSent=false;
+// Someone arriving via an invite or password-reset link gets a real session
+// from Supabase before they've ever set an actual password — that's the
+// point of the link (clicking it proves they own the inbox), but it means
+// the app has to catch that moment and make them set one, rather than just
+// waving them into the app on a session with no password behind it at all.
+let needsNewPassword=false, newPwMsg="", newPwBusy=false;
 
 function viewConfig(){
  return `<div class="gate"><div class="gwrap">
@@ -2585,14 +2594,34 @@ function viewSignIn(){
   </div></div>`;
 }
 
+function viewSetPassword(){
+ return `<div class="gate">
+  <div class="gate-glow" aria-hidden="true"></div>
+  <div class="gate-grid" aria-hidden="true"></div>
+  <div class="gwrap">
+   <img class="gate-logo" src="logo-full.webp" alt="The Slab Club" width="760" height="743">
+   <div class="gate-tag">Scan it. Price it. Keep the record.</div>
+   <div class="gcard">
+    <h1 class="gt">Set your password</h1>
+    <p class="gp">You're in — pick a password now so you can sign back in later without needing a new link.</p>
+    ${fld("New password","newPw1","","at least 8 characters","g","password")}
+    ${fld("Confirm password","newPw2","","","g","password")}
+    <button class="btn wide glow" data-act="setnewpw" ${newPwBusy?"disabled":""}>
+     ${newPwBusy?"Saving…":"Save password"}</button>
+    ${newPwMsg?`<div class="gmsg">${esc(newPwMsg)}</div>`:""}
+   </div>
+  </div></div>`;
+}
+
 /* ============ render ============ */
 function render(){
- const gate=!cfg||!sb||!user;
+ const gate=!cfg||!sb||!user||needsNewPassword;
  // the body keeps a light background and 96px of padding for the tab bar;
  // neither belongs behind the sign-in screen
  document.body.classList[gate?"add":"remove"]("gated");
  if(!cfg||!sb){document.getElementById("app").innerHTML=viewConfig();return;}
  if(!user){document.getElementById("app").innerHTML=viewSignIn();return;}
+ if(needsNewPassword){document.getElementById("app").innerHTML=viewSetPassword();return;}
 
  // A full-screen overlay (.sheet-wrap is position:fixed, inset:0) hides
  // literally everything under it. While one is open there is no point
@@ -3774,6 +3803,18 @@ document.addEventListener("click",async e=>{
     }
    }catch(e){authMsg=e.message||"Sign in failed";}
    authBusy=false;render();break;}
+  case"setnewpw":{
+   const p1=((document.querySelector('[data-g="newPw1"]')||{}).value||"");
+   const p2=((document.querySelector('[data-g="newPw2"]')||{}).value||"");
+   if(p1.length<8){newPwMsg="Needs to be at least 8 characters.";render();break;}
+   if(p1!==p2){newPwMsg="Those two don't match.";render();break;}
+   newPwBusy=true;newPwMsg="";render();
+   try{
+    const {error}=await sb.auth.updateUser({password:p1});
+    if(error){newPwMsg=error.message;}
+    else{needsNewPassword=false;newPwMsg="";render();try{await pullAll();}catch(_){}}
+   }catch(e){newPwMsg=e.message||"Couldn't save that";}
+   newPwBusy=false;render();break;}
   case"magic":{
    const em=((document.querySelector('[data-g="authEmail"]')||{}).value||"").trim();
    if(!/.+@.+\..+/.test(em)){authMsg="Enter a valid email address.";render();break;}
@@ -4133,6 +4174,10 @@ async function checkSession(){
    const was=user?user.id:null;
    user=sess?sess.user:null;
    authToken=sess?sess.access_token:null;
+   // Fires for both a password-reset link and an invite link — either way,
+   // this session exists only to let them set a real password, not to drop
+   // them straight into the app.
+   if(evt==="PASSWORD_RECOVERY")needsNewPassword=true;
    if(user&&user.id!==was){render();try{await pullAll();}catch(_){}}
    render();
   });
