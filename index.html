@@ -631,6 +631,8 @@ textarea.fld-i{resize:vertical}
 .foot-name{font-family:var(--disp);font-size:11px;letter-spacing:.16em;color:var(--ink);opacity:.75}
 .foot-ver{font-family:var(--mono);font-size:9.5px;letter-spacing:.04em}
 .foot-by{font-family:var(--mono);font-size:9.5px;color:var(--red);opacity:.8;letter-spacing:.04em}
+.foot-mail{font-family:var(--mono);font-size:9.5px;color:var(--mute);letter-spacing:.02em;
+ text-decoration:underline}
 .foot-q{flex:1;margin:0;text-align:center;font-size:13px;line-height:1.6;
  color:var(--ink);opacity:.72;font-style:italic;min-width:0}
 .foot-qt::before{content:"\201C"}
@@ -909,7 +911,7 @@ body.gated{background:#07090C;padding-bottom:0}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="110";
+const VERSION="111";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","CCG","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -1931,7 +1933,7 @@ function zoomView(){
 
 
 /* ============ setup + sign in ============ */
-let authBusy=false, authMsg="";
+let authBusy=false, authMsg="", requestSent=false;
 
 function viewConfig(){
  return `<div class="gate"><div class="gwrap">
@@ -2551,19 +2553,27 @@ function viewSignIn(){
    <img class="gate-logo" src="logo-full.webp" alt="The Slab Club" width="760" height="743">
    <div class="gate-tag">Scan it. Price it. Keep the record.</div>
    <div class="gcard">
-    <h1 class="gt">${mk?"Create your account":"Sign in"}</h1>
+    <h1 class="gt">${mk?"Request access":"Sign in"}</h1>
+    ${mk&&requestSent?`
+    <p class="gp">Sent. You'll get an email once it's approved — that's also when you'll set your password.</p>
+    ${authMsg?`<div class="gmsg">${esc(authMsg)}</div>`:""}
+    <button class="btn wide glow" data-act="togglemode">Back to sign in</button>
+    `:`
     <p class="gp">${mk
-     ?"Accounts are usually set up for you. If you were not given one, ask Raf."
+     ?`Accounts are approved by hand. Send a request and you'll hear back by email — or reach <a href="mailto:admin@theslab.club">admin@theslab.club</a> directly.`
      :"One account, on every device you catalogue from."}</p>
+    ${mk?fld("Name","authName",window._reqName||"","optional","g"):""}
     ${fld("Email","authEmail",window._email||"","you@example.com","g","email")}
-    ${fld("Password","authPass","",mk?"at least 8 characters":"","g","password")}
-    <button class="btn wide glow" data-act="${mk?"signup":"signin"}" ${authBusy?"disabled":""}>
-     ${authBusy?"Working…":(mk?"Create account":"Sign in")}</button>
+    ${mk?fld("Anything to add?","authNote",window._reqNote||"","optional — who you are, why you'd like in","g","area")
+      :fld("Password","authPass","","","g","password")}
+    <button class="btn wide glow" data-act="${mk?"reqaccess":"signin"}" ${authBusy?"disabled":""}>
+     ${authBusy?"Working…":(mk?"Request access":"Sign in")}</button>
     ${authMsg?`<div class="gmsg">${esc(authMsg)}</div>`:""}
     <button class="btn ghost wide" data-act="togglemode">${
       mk?"I already have an account":"I need an account"}</button>
-    <p class="gp small">Forgotten your password? <a href="#" data-act="magic">Email me a sign-in link</a>.</p>
+    ${mk?"":`<p class="gp small">Forgotten your password? <a href="#" data-act="magic">Email me a sign-in link</a>.</p>`}
     ${showCfg?`<button class="btn ghost wide" data-act="editcfg">Change database settings</button>`:""}
+    `}
    </div>
    <ul class="gate-feats">
     <li><b>Photograph it</b><span>Cards, sealed boxes, Funko Pops — read and priced.</span></li>
@@ -2624,6 +2634,7 @@ function render(){
      alt="The Slab Club" width="380" height="372" loading="lazy"></span>
    <span class="foot-ver">build ${VERSION}</span>
    <span class="foot-by">raf1983</span>
+   <a class="foot-mail" href="mailto:admin@theslab.club">admin@theslab.club</a>
   </div>
   <blockquote class="foot-q"><span class="foot-qt">${esc(q[0])}</span><cite>${esc(q[1])}</cite></blockquote>
  </footer>`;})();
@@ -3730,25 +3741,32 @@ document.addEventListener("click",async e=>{
   case"editcfg":
    if(BAKED.url){toast("This app is wired to its own database");break;}
    cfg=null;sb=null;authMsg="";render();break;
-  case"togglemode":window._mode=(window._mode==="new"?"":"new");authMsg="";render();break;
-  case"signin":case"signup":{
+  case"togglemode":window._mode=(window._mode==="new"?"":"new");authMsg="";requestSent=false;render();break;
+  case"reqaccess":{
+   const em=((document.querySelector('[data-g="authEmail"]')||{}).value||"").trim();
+   const nm=((document.querySelector('[data-g="authName"]')||{}).value||"").trim();
+   const nt=((document.querySelector('[data-g="authNote"]')||{}).value||"").trim();
+   if(!/.+@.+\..+/.test(em)){authMsg="Enter a valid email address.";render();break;}
+   window._email=em;window._reqName=nm;window._reqNote=nt;authBusy=true;authMsg="";render();
+   try{
+    const r=await edgeCall("access",{email:em,name:nm,note:nt},20000);
+    requestSent=true;
+    authMsg=r&&r.already?"(You'd already sent one — no need to send another.)"
+     :r&&r.mailFailed?"Saved, though the notification email itself didn't go out — email admin@theslab.club directly just in case.":"";
+   }catch(e){authMsg=e.message||"Couldn't send the request — try emailing admin@theslab.club directly.";}
+   authBusy=false;render();break;}
+  case"signin":{
    const em=((document.querySelector('[data-g="authEmail"]')||{}).value||"").trim();
    const pw=((document.querySelector('[data-g="authPass"]')||{}).value||"");
    if(!/.+@.+\..+/.test(em)){authMsg="Enter a valid email address.";render();break;}
    if(pw.length<8){authMsg="Password needs to be at least 8 characters.";render();break;}
    window._email=em;authBusy=true;authMsg="";render();
    try{
-    const fn=d.act==="signup"?"signUp":"signInWithPassword";
-    const {data,error}=await sb.auth[fn]({email:em,password:pw});
+    const {data,error}=await sb.auth.signInWithPassword({email:em,password:pw});
     if(error){
-     authMsg=/signups? not allowed|signup is disabled/i.test(error.message)
-      ?"New accounts are made by hand. Ask Raf to set one up for you, then sign in here."
-      :/invalid login/i.test(error.message)?"Email or password not recognised. If you were given an account, check the address and try again."
-      :/already registered|already exists/i.test(error.message)?"That email already has an account — sign in instead."
+     authMsg=/invalid login/i.test(error.message)?"Email or password not recognised. If you were given an account, check the address and try again."
       :/confirm/i.test(error.message)?"Supabase wants to confirm this email. Turn off Authentication → Sign In / Providers → Email → Confirm email, then try again."
       :error.message;
-    }else if(data&&data.user&&!data.session){
-     authMsg="Account made, but Supabase is asking for email confirmation. Turn off Authentication → Sign In / Providers → Email → Confirm email, then sign in.";
     }else{
      authMsg="";window._mode="";
      if(data&&data.session){user=data.session.user;authToken=data.session.access_token;claimCache();
