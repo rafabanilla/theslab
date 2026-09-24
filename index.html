@@ -738,6 +738,20 @@ body.gated{background:#07090C;padding-bottom:0}
 .gate-feats b{display:block;font-family:var(--disp);font-size:12px;letter-spacing:.05em;
  color:#D3DEE9;margin-bottom:2px}
 .gate-feats span{display:block;font-size:11px;line-height:1.5;color:#6E8298}
+/* the shop/social teaser — deliberately below sign-in and the feature list,
+   so it reads as a secondary highlight rather than competing with login */
+.gate-social{margin:28px 0 0;padding-top:22px;border-top:1px solid rgba(140,175,210,.14);
+ text-align:left}
+.gate-tag.alt{color:#5FD9A4;margin-bottom:8px}
+.gs-h{font-family:var(--disp);font-weight:500;font-size:19px;color:#EEF3F8;
+ margin:0 0 6px;letter-spacing:.01em}
+.gs-p{font-size:12px;line-height:1.6;color:#8A9BAE;margin:0 0 14px}
+.gs-links{display:flex;gap:8px;flex-wrap:wrap}
+.gs-link{flex:1;min-width:88px;text-align:center;padding:10px 10px;border-radius:8px;
+ border:1px solid rgba(140,175,210,.24);color:#DCE6EF;font-family:var(--mono);
+ font-size:10.5px;letter-spacing:.03em;text-decoration:none;background:rgba(255,255,255,.02)}
+.gs-link:active{transform:translateY(1px)}
+.gs-link.primary{border-color:rgba(95,217,164,.4);background:rgba(95,217,164,.08);color:#8FEFC4}
 .gate-foot{margin:26px 0 0;font-family:var(--mono);font-size:10px;letter-spacing:.18em;
  color:#4C5C6E;text-transform:uppercase}
 @media (max-width:420px){
@@ -796,6 +810,11 @@ body.gated{background:#07090C;padding-bottom:0}
 .pmenu-i:last-child{border-bottom:none}
 .pmenu-i.danger{color:var(--red)}
 .pmenu-i.ghost{color:var(--mute)}
+.rescan-diff{padding:12px 16px;max-height:40vh;overflow-y:auto}
+.rescan-row{font-size:13px;line-height:1.7;margin-bottom:10px}
+.rescan-old{color:var(--red);text-decoration:line-through;opacity:.75}
+.rescan-arrow{color:var(--mute);margin:0 4px}
+.rescan-new{color:var(--green);font-weight:600}
 .pmenu-wrap .confbox{width:min(320px,86vw);margin:0}
 
 /* full-screen photo zoom — sits above the item sheet (z-index 50) */
@@ -911,7 +930,7 @@ body.gated{background:#07090C;padding-bottom:0}
 /* ============ constants ============ */
 const KEY="theslab.v1";
 // Increment by one on every build. Nothing else — the number is the whole point.
-const VERSION="113";
+const VERSION="115";
 const CATS=["NBA","WNBA","NFL","MLB","NHL","Soccer","Boxing/MMA","Pokemon","Magic","Yu-Gi-Oh","Other TCG","Sealed product","Funko Pop","Entertainment","Other"];
 const GRADERS=["PSA","BGS","SGC","CGC","CCG","GCC","WCG","HGA","TAG","Other"];
 const TRAITS_ANY=["numbered","auto","relic","rookie","1st-edition"];
@@ -993,7 +1012,7 @@ const SEED=[
 let S={cards:[],settings:{...DEF_SET}};
 let tab="scan", editing=null, confirmDel=false, dupReview=false;
 // long-press context menu, multi-select, and the photo zoom overlay
-let pressMenu=null, pendingDeleteId=null, zoomPhoto=null;
+let pressMenu=null, pendingDeleteId=null, zoomPhoto=null, rescanProposal=null;
 let selectMode=false, selectedIds=new Set();
 let pressTimer=null, pressStart=null, pressMoved=false, justLongPressed=false;
 document.addEventListener("pointerdown",e=>{
@@ -1566,17 +1585,29 @@ async function rescanOne(id){
   const [front,back]=await Promise.all([urlToBase64(c.photoF),urlToBase64(c.photoB)]);
   const r=await rescanAPI(front,back);
   tally("scan",r.usage);
-  const FIELDS=["year","set","subject","num","variant","serial"];
-  const filled=[];
-  FIELDS.forEach(k=>{if(!c[k]&&r[k]){c[k]=r[k];filled.push(k);}});
-  if(filled.length){
-   save();pushCard(c);
-   if(editing&&editing.id===c.id)FIELDS.forEach(k=>{editing[k]=c[k];});
-   render();
-   toast("Filled in from the back: "+filled.join(", "));
-  }else{
+  // Earlier this only ever filled fields that were still blank, on the
+  // theory that a non-blank field was something the person had already
+  // confirmed and shouldn't be silently overwritten. That's the right
+  // instinct for a field YOU typed — but a field that's already wrong
+  // because an earlier automated scan got it wrong stays wrong forever,
+  // since it never looks blank to this check. Showing the proposed change
+  // and asking replaces "never touch a filled field" with "never touch a
+  // field without asking" — corrects real mistakes without ever silently
+  // overwriting something you actually confirmed yourself.
+  const FIELDS=[["year","Year"],["set","Set"],["subject","Player/Character"],
+   ["num","Number"],["variant","Parallel/Insert"],["serial","Serial"]];
+  const changes=[];
+  FIELDS.forEach(([k,l])=>{
+   const nv=String(r[k]||"").trim();
+   const ov=String(c[k]||"").trim();
+   if(nv&&nv!==ov)changes.push({k,l,old:ov,new:nv});
+  });
+  if(!changes.length){
    toast(r.note?String(r.note).slice(0,120):"Nothing new found on either photo");
+   return;
   }
+  rescanProposal={cardId:id,changes};
+  render();
  }catch(e){
   toast("Couldn't re-check: "+(e&&e.message||e));
  }
@@ -1931,6 +1962,21 @@ function zoomView(){
  return`<div class="zoom-wrap">
   <img class="zoom-img" src="${esc(zoomPhoto)}" alt="">
   <button class="zoom-x" data-act="zoomclose" aria-label="Close">✕</button>
+ </div>`;
+}
+function rescanProposalView(){
+ if(!rescanProposal)return"";
+ return`<div class="sheet-wrap pmenu-wrap">
+  <div class="pmenu">
+   <div class="pmenu-t">Update from re-check?</div>
+   <div class="rescan-diff">${rescanProposal.changes.map(ch=>
+     `<div class="rescan-row"><b>${esc(ch.l)}</b><br>
+      <span class="rescan-old">${esc(ch.old||"(blank)")}</span>
+      <span class="rescan-arrow">→</span>
+      <span class="rescan-new">${esc(ch.new)}</span></div>`).join("")}</div>
+   <button class="pmenu-i" data-act="rescan-apply">Apply changes</button>
+   <button class="pmenu-i ghost" data-act="rescan-cancel">Leave as is</button>
+  </div>
  </div>`;
 }
 
@@ -2590,6 +2636,16 @@ function viewSignIn(){
     <li><b>Grade the right ones</b><span>What a slab would add, against what it costs.</span></li>
     <li><b>Roll the dice</b><span>Character sheets and a campaign log for the table.</span></li>
    </ul>
+   <div class="gate-social">
+    <div class="gate-tag alt">Now Open</div>
+    <h2 class="gs-h">The collection became a shop.</h2>
+    <p class="gs-p">A few slabs are live on eBay. New drops post first on Instagram and TikTok.</p>
+    <div class="gs-links">
+     <a class="gs-link primary" href="https://www.ebay.com/usr/theslabclub" target="_blank" rel="noopener">eBay Store</a>
+     <a class="gs-link" href="https://www.instagram.com/theslab.club" target="_blank" rel="noopener">Instagram</a>
+     <a class="gs-link" href="https://www.tiktok.com/@theslab.club" target="_blank" rel="noopener">TikTok</a>
+    </div>
+   </div>
    <p class="gate-foot">theslab.club</p>
   </div></div>`;
 }
@@ -2680,6 +2736,7 @@ function render(){
  h+=pressMenuView();
  h+=pendingDeleteView();
  h+=zoomView();
+ h+=rescanProposalView();
  document.getElementById("app").innerHTML=h;
  positionTabs();
  if(editing)hydratePhotos();
@@ -3745,6 +3802,17 @@ document.addEventListener("click",async e=>{
   case"confirmdelid":{const id=pendingDeleteId;pendingDeleteId=null;render();
    if(id)await deleteCardById(id);break;}
   case"zoomclose":zoomPhoto=null;render();break;
+  case"rescan-apply":{
+   if(!rescanProposal)break;
+   const c=S.cards.find(x=>x.id===rescanProposal.cardId);
+   if(c){
+    rescanProposal.changes.forEach(ch=>{c[ch.k]=ch.new;});
+    save();pushCard(c);
+    if(editing&&editing.id===c.id)rescanProposal.changes.forEach(ch=>{editing[ch.k]=ch.new;});
+    toast("Updated: "+rescanProposal.changes.map(ch=>ch.l).join(", "));
+   }
+   rescanProposal=null;render();break;}
+  case"rescan-cancel":rescanProposal=null;render();break;
   case"selectstart":selectMode=true;render();break;
   case"selectdone":selectMode=false;selectedIds.clear();render();break;
   case"selectall":(window._visible||[]).forEach(c=>selectedIds.add(c.id));render();break;
